@@ -4,7 +4,9 @@
       "name": "unity-devkit",
       "path": ".",
       "major_minor": "0.1",
-      "feeds": { "pypi": "unity-devkit" }
+      "registries": {
+        "pypi": "unity-devkit"
+      }
     }
   ],
   "ci_workflow": "ci.yml"
