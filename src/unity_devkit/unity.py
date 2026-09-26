@@ -1,6 +1,7 @@
 import shutil
 import sys
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TypedDict
 
@@ -39,6 +40,7 @@ def run_unity_batchmode(
     nographics: bool = True,
     auto_quit: bool = True,
     strict_exit: bool = True,
+    extra_failure_signatures: Sequence[str] = (),
 ) -> None:
     log_path = Path(tempfile.mkdtemp(prefix="unity-devkit-")) / "editor.log"
     command = (
@@ -54,10 +56,11 @@ def run_unity_batchmode(
     except CalledProcessError as error:
         returncode = error.returncode
 
+    signatures = QUIET_FAILURE_SIGNATURES + tuple(extra_failure_signatures)
     lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
     failure_block = None
     for index, line in enumerate(lines):
-        if not any(signature in line for signature in QUIET_FAILURE_SIGNATURES):
+        if not any(signature in line for signature in signatures):
             continue
         block: list[str] = []
         for candidate in lines[index : index + QUIET_FAILURE_BLOCK_LINE_LIMIT]:
@@ -68,7 +71,7 @@ def run_unity_batchmode(
         break
 
     if failure_block is not None:
-        raise SystemExit(f"Unity reported a package-manager failure (exit code {returncode}):\n{failure_block}")
+        raise SystemExit(f"Unity reported a silent failure (exit code {returncode}):\n{failure_block}")
     if returncode != 0 and strict_exit:
         raise SystemExit(f"Unity exited {returncode}; full editor log at {log_path}")
     if returncode != 0:

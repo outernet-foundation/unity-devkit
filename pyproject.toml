@@ -17,6 +17,7 @@ dev = ["basedpyright>=1.39.10", "ruff>=0.14.11", "pytest>=8.0.0"]
 [project.scripts]
 activate-unity-license = "unity_devkit.license:activate_app"
 build-unity = "unity_devkit.build_unity:app"
+check-unity = "unity_devkit.check_unity:app"
 compile-unity = "unity_devkit.compile_unity:app"
 install = "unity_devkit.install:app"
 lock-unity = "unity_devkit.lock_unity:app"
