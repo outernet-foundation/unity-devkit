@@ -16,7 +16,8 @@ Run from a repo root with a `unity-devkit.json` catalog declaring its Unity proj
 
 | `uv run <name>` | What it does |
 |---|---|
-| `compile-unity --project <name> --build <target>` | Local Unity build (APK or platform binary) suitable for `adb install`. |
+| `compile-unity --project <name> --build <target>` | Local Unity build (APK or platform binary) suitable for `adb install`; `--stamp-version` stamps the version into `ProjectSettings.asset`. |
+| `check-unity --project <name>` | Compile gate — batchmode open+quit that fails on compile errors; for repos that own editor code but build no players. |
 | `install --project <name>` | Download the latest CI artifact and `adb install` (or launch, for `linux64`); with `--build`, compile locally first. |
 | `lock-unity` | Lock Unity package versions. |
 | `test-unity --project <name>` | Run editmode / playmode tests. |
