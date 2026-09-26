@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from bashrun.bash import bash
 
-from unity_devkit.build_unity import latest_tag_version
+from unity_devkit.versioning import latest_tag_version
 
 
 def test_latest_tag_version_returns_newest_version_sorted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

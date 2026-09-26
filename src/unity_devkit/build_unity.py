@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import json
 import os
 import shutil
 from pathlib import Path
 from typing import Annotated
 
 import typer
-from bashrun.bash import bash_output
 from pydantic_settings import BaseSettings
 
 from ci_devkit.cache import restore, save
@@ -16,6 +14,7 @@ from .license_restore import restore_license
 from ci_devkit.setup import configure_git, install_dotnet
 from ci_devkit.setup_oras import install_oras
 from .unity import prepare_unity_project, resolve_unity_build, run_unity_batchmode
+from .versioning import stamp_build_version
 
 
 class Settings(BaseSettings):
@@ -77,11 +76,8 @@ def main(
     with ci_step(f"Build {project} [{platform}]"):
         tag_prefix = project_config.tag_prefix
         if tag_prefix:
-            version = latest_tag_version(f"{tag_prefix}-v") or "0.0.0"
-            full_version = f"{version}-dev+{run_number}" if branch != "main" else f"{version}+{run_number}"
-            version_file = unity_project_path / ".build-version.json"
-            version_file.write_text(json.dumps({"version": full_version, "runNumber": run_number}))
-            print(f"Wrote version {full_version} (bundleVersionCode={run_number}) to {version_file}")
+            full_version = stamp_build_version(unity_project_path, tag_prefix, run_number, release=(branch == "main"))
+            print(f"Stamped bundleVersion {full_version} (bundleVersionCode={run_number}) into ProjectSettings")
 
         run_unity_batchmode(unity_project_path, f"{build_flag} -executeMethod {execute_method}", nographics=False)
 
@@ -104,10 +100,3 @@ def main(
                 for file in build_directory.rglob("*"):
                     if file.suffix in {".apk", ".exe"}:
                         shutil.copy2(file, artifact_directory / file.name)
-
-
-def latest_tag_version(prefix: str) -> str | None:
-    output = bash_output(f'git tag --list "{prefix}*" --sort=-v:refname').strip()
-    if not output:
-        return None
-    return output.splitlines()[0][len(prefix) :]
