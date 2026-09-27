@@ -13,6 +13,9 @@ from unity_devkit.dispatch import (
 from unity_devkit.unity import child_environment, parse_environment_fields
 
 FIXTURE_DUMP = Path(__file__).parent / "fixtures" / "environment-dump.json"
+PINNED_BUILD_WORKFLOW = (
+    "outernet-foundation/unity-devkit/.github/workflows/unity-build.yml@cfd487e0e19b3d98046a2680a210137ec0d32832"
+)
 
 
 def load_fixture_dump() -> EnvironmentDump:
@@ -20,7 +23,12 @@ def load_fixture_dump() -> EnvironmentDump:
 
 
 def render_fixture_workflow() -> str:
-    return render_dispatch_workflow(load_fixture_dump(), project="PlayerBuild", output=".github/workflows/build.yml")
+    return render_dispatch_workflow(
+        load_fixture_dump(),
+        project="PlayerBuild",
+        output=".github/workflows/build.yml",
+        build_workflow=PINNED_BUILD_WORKFLOW,
+    )
 
 
 def test_render_modes_are_deduped_into_the_preset_choice() -> None:
@@ -66,7 +74,9 @@ def test_render_rejects_unknown_field_type() -> None:
     dump.fields.append(EnvironmentFieldDump(path="weird", field_type="Byte[]"))
 
     with pytest.raises(SystemExit, match="no dispatch input type maps"):
-        render_dispatch_workflow(dump, project="PlayerBuild", output=".github/workflows/build.yml")
+        render_dispatch_workflow(
+            dump, project="PlayerBuild", output=".github/workflows/build.yml", build_workflow=PINNED_BUILD_WORKFLOW
+        )
 
 
 def test_render_enforces_the_dispatch_input_cap() -> None:
@@ -74,7 +84,9 @@ def test_render_enforces_the_dispatch_input_cap() -> None:
     dump.fields.extend(EnvironmentFieldDump(path=f"extra{index}", field_type="String") for index in range(25))
 
     with pytest.raises(SystemExit, match="cap is 25"):
-        render_dispatch_workflow(dump, project="PlayerBuild", output=".github/workflows/build.yml")
+        render_dispatch_workflow(
+            dump, project="PlayerBuild", output=".github/workflows/build.yml", build_workflow=PINNED_BUILD_WORKFLOW
+        )
 
 
 def test_render_is_deterministic() -> None:
@@ -97,8 +109,17 @@ def test_rendered_workflow_is_valid_yaml() -> None:
         "localConfig-apiUrl",
         "localConfig-portNumber",
     ]
-    assert document["jobs"]["build"]["uses"] == "./.github/workflows/unity-build.yml"
+    assert document["jobs"]["build"]["uses"] == PINNED_BUILD_WORKFLOW
     assert document["jobs"]["build"]["secrets"] == "inherit"
+
+
+def test_render_header_embeds_the_full_regen_command() -> None:
+    header = render_fixture_workflow().splitlines()[0]
+
+    assert (
+        f"uv run unity-dispatch --project PlayerBuild --output .github/workflows/build.yml "
+        f"--build-workflow {PINNED_BUILD_WORKFLOW}" in header
+    )
 
 
 def test_extract_from_log_text(tmp_path: Path) -> None:
