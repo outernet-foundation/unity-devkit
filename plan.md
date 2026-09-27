@@ -93,8 +93,8 @@ Phase 5 executed in full: the Python half plus the release preparation. Landed:
   playerbuild platform names via `playerbuild_platform` in `PLATFORM_CONFIGS` (`android-mobile` →
   `AndroidMobile`, `magicleap` → `MagicLeap2`; `linux64`/`win64` carry `""` — their execute methods are
   consumer-owned). `resolve_unity_build` returns the 4-tuple including the platform name.
-- **Doors.** `compile-unity`: `--development` bool flag, `--environment <preset>`, repeatable
-  `--environment-field path=value` (the plan's CLI spelling). `build-unity`: `--environment`,
+- **Doors.** `compile-unity`: `--development` bool flag, `--environment-preset <name>`, repeatable
+  `--environment-field path=value`. `build-unity`: `--environment-preset`,
   `--development` (validated `'true'`/`'false'` string — workflow booleans arrive as strings; the two
   doors' skins differ, the transport spelling is one), `--environment-fields` (newline `path=value` — the
   shape the generated dispatch workflow emits). `--build-env` and its KEY=VALUE loop are deleted.
@@ -103,8 +103,8 @@ Phase 5 executed in full: the Python half plus the release preparation. Landed:
   record: CT's unpushed ci.yml still passes `build-env:` and will error against the new input surface
   until its Phase 6 remainder migrates — expected; that work is gated on this release anyway.
 - **`unity-dispatch`** (new verb, `dispatch.py`): runs the dump door
-  (`Outernet.PlayerBuild.DumpEnvironment`, class pointer from `--environment-class` or the project's
-  `build-config.json`), extracts the payload structurally (log line parsing as a JSON object with
+  (`Outernet.PlayerBuild.DumpEnvironment`, class pointer from `--environment-config-class` or the
+  project's `build-config.json`), extracts the payload structurally (log line parsing as a JSON object with
   `class_name` — no magic-string coupling), validates into a forbid-extra pydantic model, renders static
   YAML: preset choice (leading empty option = unset = ambient no-op) + development boolean + one input
   per simple-typed field — bool → checkbox, non-flags enum → choice (empty option first), flags enum →
@@ -139,10 +139,19 @@ Open arithmetic, flagged not fixed: §Environment model's panel budget line says
 would count 21. No third control is derivable from the panel rules; if the owner has one in mind
 (runner-labels passthrough, platform selector), it is one input away.
 
+Vocabulary amendment (owner-directed, same session, before any release froze the names): bare
+`environment` became `environment_preset` in every Python-facing spelling — the bare name collided
+with GitHub's `environment` input type in the panel, and `child_environment`'s parameter read as the
+process environment it isn't; the generated dispatch input id and the hosted `unity-build.yml` input
+followed (`environment-preset`, hyphenated ids ride bracket notation in expressions —
+`inputs['environment-preset']`, subtraction would otherwise parse), and the generator's class override
+became `--environment-config-class`, matching the `ENVIRONMENT_CONFIG_CLASS` door var verbatim. The
+transport env vars themselves (`ENVIRONMENT`, `ENVIRONMENT_FIELDS`) keep the Phase 3 C# spellings.
+
 The release (one devkit release carrying both registries) rides the operator push: 31 commits local on
 main (29 prior, plus the owner's mid-session `b7b77fd`/`2559e0a` window-fix pair) → push → CI → `release.yml` publishes PyPI `unity-devkit` + npm `org.outernet.playerbuild` (path-
 diff covers `packages/python/unity-devkit`; the hosted workflow edits ride the SHA pin, not a ledger).
-CT's gated remainder then rides the release: CI `--environment` migration + ci.yml input fix, npm pin
+CT's gated remainder then rides the release: CI `--environment-preset` migration + ci.yml input fix, npm pin
 swap for the local `file:` pin, dispatch workflow generation + drift gate, APK smoke, the Phase 1
 acceptance probe. Phase 6's flip list otherwise unchanged.
 
@@ -704,8 +713,10 @@ without dump regen is a loud CI failure — the accepted regen tax.
 - input values are plaintext in run UI/logs/payload (F32) — accepted: they are
   configuration, not credentials. MIS budget: 19 fields + 3 controls = 22 of 25.
 
-**CLI (Phase 5)**: `--environment <preset>` + repeatable `--environment-field
-path=value`; the door→entry transport carries the override set as a JSON payload
+**CLI (Phase 5)**: `--environment-preset <name>` + repeatable `--environment-field
+path=value` (amended 2026-09-27 from `--environment` — precision: the value is a preset key, and a
+bare "environment" collides with GitHub's `environment` input type in the dispatch panel); the
+door→entry transport carries the override set as a JSON payload
 (`ENVIRONMENT_FIELDS` = `{"path": "value", ...}` — comma-safe for flags values); the
 preset rides `ENVIRONMENT`. Uniform enum application rule, flags included: names parsed
 via `Enum.Parse` against the reflected member type → `SerializedProperty.intValue`;
@@ -957,7 +968,7 @@ CSharpier, hand-smoke against the harness fixture.
 
 **Phase 5 — devkit release** (the old Phase V's Python half; version = next patch after
 0.1.15 plus any intermediates the push cadence cut). Python (PyPI `unity-devkit`): typed
-`--environment`/`--development`/`--environment-field` flags with the JSON
+`--environment-preset`/`--development`/`--environment-field` flags with the JSON
 `ENVIRONMENT_FIELDS` transport and child-env control (implementing the contract Phase 3
 defined); the dispatch generator verb consuming the dump output (panel rules in
 §Environment model; tested against the Phase 3 fixture's dump JSON); `--build-env`
@@ -975,7 +986,7 @@ committed preset asset carrying today's `airgapped-settings.json` values; rewire
 write-back chain stays untouched); delete `airgapped-settings.json`. Then: npm-pin the
 package; `build-config.json` with the class-path `environment_config` +
 `platforms["AndroidMobile"]`; migrate CI `--build-env CONFIG_TYPE=default` →
-`--environment`; catalog entry → the single executeMethod; generate the dispatch-wrapper
+`--environment-preset`; catalog entry → the single executeMethod; generate the dispatch-wrapper
 workflow; delete `Assets/Editor/BuildScript.cs`; `compile-unity` local build; APK smoke
 (`aapt` versionName/Code vs the stamp); the open Phase 1 acceptance probe
 (hand-vandalize an applied global, build, expect the loud "run Apply" preprocessor
