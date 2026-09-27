@@ -5,7 +5,7 @@ requires-python = ">=3.13"
 dependencies = []
 
 [dependency-groups]
-dev = ["unity-devkit", "basedpyright>=1.39.10", "ruff>=0.14.11", "pytest>=8.0.0"]
+dev = ["unity-devkit", "basedpyright>=1.39.10", "ruff>=0.14.11", "pytest>=8.0.0", "pyyaml>=6.0.2"]
 
 [tool.uv.workspace]
 members = ["packages/python/unity-devkit"]

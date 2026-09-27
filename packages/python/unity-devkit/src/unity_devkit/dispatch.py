@@ -1,0 +1,251 @@
+import json
+from pathlib import Path
+from typing import Annotated
+
+import typer
+from pydantic import BaseModel, ConfigDict
+
+from .check_unity import COMPILE_ERROR_SIGNATURES
+from .projects import load_catalog
+from .unity import prepare_unity_project, run_unity_batchmode
+
+app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
+
+DUMP_EXECUTE_METHOD = "Outernet.PlayerBuild.DumpEnvironment"
+DISPATCH_INPUT_CAP = 25
+NUMERIC_FIELD_TYPES = {
+    "Byte",
+    "SByte",
+    "Int16",
+    "UInt16",
+    "Int32",
+    "UInt32",
+    "Int64",
+    "UInt64",
+    "Single",
+    "Double",
+    "Decimal",
+}
+
+
+class EnvironmentEnum(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    values: list[str]
+    flags: bool
+
+
+class EnvironmentFieldDump(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str
+    field_type: str
+
+
+class EnvironmentDump(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    class_name: str
+    mode_field: str
+    target_path: str
+    presets: dict[str, str]
+    enums: list[EnvironmentEnum]
+    fields: list[EnvironmentFieldDump]
+
+
+@app.command()
+def unity_dispatch(
+    project: Annotated[str, typer.Option(help="Unity project name (catalog key in unity-devkit.json)")],
+    output: Annotated[Path, typer.Option(help="Workflow file to write (or check with --check)")],
+    environment_class: Annotated[
+        str | None,
+        typer.Option(help="Env class file path override (defaults to build-config.json's environment_config)"),
+    ] = None,
+    check: Annotated[
+        bool, typer.Option("--check", help="Compare against the existing file instead of writing; fail on drift")
+    ] = False,
+) -> None:
+    projects = load_catalog()
+    if project not in projects:
+        raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
+
+    project_path = projects[project].path
+    env = {"ENVIRONMENT_CONFIG_CLASS": environment_class} if environment_class else None
+    print(f"Dumping environment of {project}...")
+    prepare_unity_project(project_path)
+    log_path = run_unity_batchmode(
+        project_path,
+        f"-executeMethod {DUMP_EXECUTE_METHOD}",
+        extra_failure_signatures=COMPILE_ERROR_SIGNATURES,
+        env=env,
+    )
+    dump = extract_environment_dump(log_path)
+    workflow = render_dispatch_workflow(dump, project=project, output=output.as_posix())
+
+    if check:
+        if not output.is_file():
+            raise SystemExit(f"Dispatch workflow drift: {output} does not exist — generate it")
+        committed = output.read_text(encoding="utf-8")
+        if committed != workflow:
+            raise SystemExit(
+                f"Dispatch workflow drift: {output} differs from the environment class — regenerate with "
+                f"'uv run unity-dispatch --project {project} --output {output.as_posix()}'"
+            )
+        print(f"  {output} matches the environment class")
+        return
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(workflow, encoding="utf-8")
+    print(f"  wrote {output}")
+
+
+def extract_environment_dump(log_path: Path) -> EnvironmentDump:
+    for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        candidate = line.strip()
+        if not candidate.startswith("{"):
+            continue
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and "class_name" in payload:
+            return EnvironmentDump.model_validate(payload)
+
+    raise SystemExit(f"No environment dump JSON found in the editor log at {log_path}")
+
+
+def render_dispatch_workflow(dump: EnvironmentDump, *, project: str, output: str) -> str:
+    enums_by_name = {environment_enum.name: environment_enum for environment_enum in dump.enums}
+    input_blocks: list[tuple[str, str, list[str], str | None]] = [
+        (
+            "environment",
+            "Environment preset (Presets key) — empty leaves the workspace untouched",
+            ["type: choice", "options:", *indent_lines([*(f'- "{preset}"' for preset in ("", *dump.presets))], 2)],
+            'default: ""',
+        ),
+        ("development", "Development build column", ["type: boolean"], "default: false"),
+    ]
+    for field in dump.fields:
+        if field.path == dump.mode_field:
+            continue
+        input_blocks.append(field_input_block(field, enums_by_name))
+
+    input_count = len(input_blocks)
+    if input_count > DISPATCH_INPUT_CAP:
+        raise SystemExit(
+            f"Dispatch panel would carry {input_count} inputs — GitHub's workflow_dispatch cap is {DISPATCH_INPUT_CAP}. "
+            "Shrink the env class or move configuration out of it."
+        )
+
+    transport_lines = [field_transport_line(field) for field in dump.fields if field.path != dump.mode_field]
+
+    lines = [
+        f"# Generated by 'uv run unity-dispatch --project {project} --output {output}' from the environment",
+        f"# class {dump.class_name} — edit the class, then regenerate this workflow.",
+        "name: Unity Dispatch Build",
+        "",
+        "on:",
+        "  workflow_dispatch:",
+        "    inputs:",
+        *indent_lines([line for block in input_blocks for line in build_input_block(block)], 6),
+        "",
+        "jobs:",
+        "  build:",
+        "    uses: ./.github/workflows/unity-build.yml",
+        "    with:",
+        "      environment: ${{ inputs.environment }}",
+        "      development: ${{ inputs.development }}",
+    ]
+    if transport_lines:
+        lines.append("      environment-fields: |-")
+        lines.extend(indent_lines(transport_lines, 8))
+    else:
+        lines.append("      environment-fields: ''")
+    lines.append("    secrets: inherit")
+    return "\n".join(lines) + "\n"
+
+
+def field_input_block(
+    field: EnvironmentFieldDump, enums_by_name: dict[str, EnvironmentEnum]
+) -> tuple[str, str, list[str], str | None]:
+    input_id = field.path.replace(".", "-")
+    if field.field_type == "Boolean":
+        return (
+            input_id,
+            f"environment field {field.path} (bool) — checked overrides the preset value",
+            ["type: boolean"],
+            "default: false",
+        )
+
+    if field.field_type in enums_by_name:
+        environment_enum = enums_by_name[field.field_type]
+        if environment_enum.flags:
+            return (
+                input_id,
+                (
+                    f"environment field {field.path} (flags: {', '.join(environment_enum.values)}) — "
+                    "comma-separated names, empty keeps the preset value"
+                ),
+                ["type: string"],
+                'default: ""',
+            )
+        return (
+            input_id,
+            f"environment field {field.path} ({environment_enum.name}) — empty keeps the preset value",
+            [
+                "type: choice",
+                "options:",
+                *indent_lines([*(f'- "{value}"' for value in ("", *environment_enum.values))], 2),
+            ],
+            'default: ""',
+        )
+
+    if field.field_type == "String":
+        return (
+            input_id,
+            f"environment field {field.path} (string) — empty keeps the preset value",
+            ["type: string"],
+            'default: ""',
+        )
+
+    if field.field_type in NUMERIC_FIELD_TYPES:
+        return (
+            input_id,
+            f"environment field {field.path} ({field.field_type}) — empty keeps the preset value",
+            ["type: number"],
+            None,
+        )
+
+    raise SystemExit(
+        f"Environment field '{field.path}' has type '{field.field_type}' — no dispatch input type maps to it "
+        "(arrays and object references self-exclude from the dump; this is contract drift)"
+    )
+
+
+def field_transport_line(field: EnvironmentFieldDump) -> str:
+    input_id = field.path.replace(".", "-")
+    guard = "" if field.field_type == "Boolean" else " != ''"
+    return (
+        "${{ inputs['"
+        + input_id
+        + "']"
+        + guard
+        + " && format('"
+        + field.path
+        + "={0}', inputs['"
+        + input_id
+        + "']) || '' }}"
+    )
+
+
+def build_input_block(input_block: tuple[str, str, list[str], str | None]) -> list[str]:
+    input_id, description, type_lines, default_line = input_block
+    lines = [f"{input_id}:", f'  description: "{description}"', *[f"  {line}" for line in type_lines]]
+    if default_line is not None:
+        lines.append(f"  {default_line}")
+    return lines
+
+
+def indent_lines(lines: list[str], spaces: int) -> list[str]:
+    return [f"{' ' * spaces}{line}" if line else line for line in lines]

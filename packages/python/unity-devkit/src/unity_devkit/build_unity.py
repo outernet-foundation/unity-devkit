@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import shutil
 from pathlib import Path
 from typing import Annotated
@@ -13,7 +12,13 @@ from ci_devkit.ci_step import ci_step
 from .license_restore import restore_license
 from ci_devkit.setup import configure_git, install_dotnet
 from ci_devkit.setup_oras import install_oras
-from .unity import prepare_unity_project, resolve_unity_build, run_unity_batchmode
+from .unity import (
+    child_environment,
+    parse_environment_fields,
+    prepare_unity_project,
+    resolve_unity_build,
+    run_unity_batchmode,
+)
 from .versioning import stamp_build_version
 
 
@@ -33,20 +38,19 @@ def main(
     registry: Annotated[str, typer.Option(help="OCI registry path")],
     run_number: Annotated[int, typer.Option(help="CI run number")] = 0,
     branch: Annotated[str, typer.Option(help="Git branch name")] = "dev",
-    build_env: Annotated[
-        str, typer.Option(help="Newline-separated KEY=VALUE pairs injected into the Unity build process environment")
+    environment: Annotated[
+        str, typer.Option(help="Environment preset name; empty leaves the workspace untouched")
+    ] = "",
+    development: Annotated[str, typer.Option(help="Development build column: 'true' or 'false'")] = "false",
+    environment_fields: Annotated[
+        str, typer.Option(help="Newline-separated path=value environment field overrides")
     ] = "",
 ) -> None:
     settings = Settings.model_validate({})
 
-    for line in build_env.splitlines():
-        entry = line.strip()
-        if not entry:
-            continue
-        key, separator, value = entry.partition("=")
-        if not separator:
-            raise SystemExit(f"Invalid --build-env entry (expected KEY=VALUE): {entry!r}")
-        os.environ[key.strip()] = value.strip()
+    if development not in ("true", "false"):
+        raise SystemExit(f"--development must be 'true' or 'false' — got '{development}'")
+    fields = parse_environment_fields(environment_fields.splitlines())
 
     with ci_step("Setup"):
         configure_git(settings.github_workspace)
@@ -63,7 +67,7 @@ def main(
         restore(registry, "unity-library", tag, Path("."), fallback_tags=fallback_tags)
 
     with ci_step("Prepare build"):
-        project_config, build_flag, execute_method = resolve_unity_build(project, platform)
+        project_config, build_flag, execute_method, playerbuild_platform = resolve_unity_build(project, platform)
         unity_project_path = project_config.path
         if unity_project_path.resolve() != project_path.resolve():
             raise SystemExit(
@@ -79,7 +83,10 @@ def main(
             full_version = stamp_build_version(unity_project_path, tag_prefix, run_number, release=(branch == "main"))
             print(f"Stamped bundleVersion {full_version} (bundleVersionCode={run_number}) into ProjectSettings")
 
-        run_unity_batchmode(unity_project_path, f"{build_flag} -executeMethod {execute_method}", nographics=False)
+        env = child_environment(playerbuild_platform, development == "true", environment, fields)
+        run_unity_batchmode(
+            unity_project_path, f"{build_flag} -executeMethod {execute_method}", nographics=False, env=env
+        )
 
     with ci_step("Save library cache"):
         # PackageCache (~1.6 GiB) is redundant with the shared UPM cache at ~/.cache/Unity/upm/

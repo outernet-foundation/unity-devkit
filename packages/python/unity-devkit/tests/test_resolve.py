@@ -49,8 +49,20 @@ def test_resolve_returns_platform_config(tmp_path: Path, monkeypatch: pytest.Mon
     write_repository(tmp_path, {"path": "Tool", "builds": ["linux64"], "execute_methods": {"linux64": "Tool.Build"}})
     monkeypatch.chdir(tmp_path)
 
-    project_config, build_flag, execute_method = resolve_unity_build("tool", "linux64")
+    project_config, build_flag, execute_method, playerbuild_platform = resolve_unity_build("tool", "linux64")
 
     assert project_config.path == Path.cwd() / "Tool"
     assert build_flag == "-buildTarget StandaloneLinux64"
     assert execute_method == "Tool.Build"
+    assert playerbuild_platform == ""
+
+
+def test_resolve_returns_playerbuild_platform(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    write_repository(
+        tmp_path, {"path": "Tool", "builds": ["magicleap"], "execute_methods": {"magicleap": "Tool.Build"}}
+    )
+    monkeypatch.chdir(tmp_path)
+
+    _, _, _, playerbuild_platform = resolve_unity_build("tool", "magicleap")
+
+    assert playerbuild_platform == "MagicLeap2"

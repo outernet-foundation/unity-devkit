@@ -1,0 +1,63 @@
+{
+  "class_name": "Outernet.FixtureEnv",
+  "mode_field": "configMode",
+  "target_path": "Assets/_LocalWorkspace/Resources/FixtureEnv.asset",
+  "presets": {
+    "Airgapped": "Assets/Editor/FixtureAirgappedEnv.asset"
+  },
+  "enums": [
+    {
+      "name": "FixtureEnvMode",
+      "values": [
+        "Airgapped",
+        "Supabase",
+        "Override"
+      ],
+      "flags": false
+    },
+    {
+      "name": "FixtureCapabilities",
+      "values": [
+        "None",
+        "Capture",
+        "Stream",
+        "Analyze"
+      ],
+      "flags": true
+    }
+  ],
+  "fields": [
+    {
+      "path": "configMode",
+      "field_type": "FixtureEnvMode"
+    },
+    {
+      "path": "username",
+      "field_type": "String"
+    },
+    {
+      "path": "password",
+      "field_type": "String"
+    },
+    {
+      "path": "verboseLogging",
+      "field_type": "Boolean"
+    },
+    {
+      "path": "pollIntervalSeconds",
+      "field_type": "Single"
+    },
+    {
+      "path": "capabilities",
+      "field_type": "FixtureCapabilities"
+    },
+    {
+      "path": "localConfig.apiUrl",
+      "field_type": "String"
+    },
+    {
+      "path": "localConfig.portNumber",
+      "field_type": "Int32"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import json
 import shutil
 import sys
 import tempfile
@@ -13,13 +14,18 @@ from .projects import CatalogEntry, load_catalog
 class PlatformConfig(TypedDict):
     build_flag: str
     module: str
+    playerbuild_platform: str
 
 
 PLATFORM_CONFIGS: dict[str, PlatformConfig] = {
-    "android-mobile": {"build_flag": "-buildTarget Android", "module": "android"},
-    "magicleap": {"build_flag": "-buildTarget Android", "module": "android"},
-    "linux64": {"build_flag": "-buildTarget StandaloneLinux64", "module": "linux-il2cpp"},
-    "win64": {"build_flag": "-buildTarget Win64", "module": "windows-mono"},
+    "android-mobile": {
+        "build_flag": "-buildTarget Android",
+        "module": "android",
+        "playerbuild_platform": "AndroidMobile",
+    },
+    "magicleap": {"build_flag": "-buildTarget Android", "module": "android", "playerbuild_platform": "MagicLeap2"},
+    "linux64": {"build_flag": "-buildTarget StandaloneLinux64", "module": "linux-il2cpp", "playerbuild_platform": ""},
+    "win64": {"build_flag": "-buildTarget Win64", "module": "windows-mono", "playerbuild_platform": ""},
 }
 
 UNITYCI_IMAGE_REVISION = "3"
@@ -41,7 +47,8 @@ def run_unity_batchmode(
     auto_quit: bool = True,
     strict_exit: bool = True,
     extra_failure_signatures: Sequence[str] = (),
-) -> None:
+    env: dict[str, str] | None = None,
+) -> Path:
     log_path = Path(tempfile.mkdtemp(prefix="unity-devkit-")) / "editor.log"
     command = (
         f"{unity_batchmode_command(project_path, nographics=nographics, auto_quit=auto_quit)} {extra_flags}"
@@ -50,9 +57,9 @@ def run_unity_batchmode(
     returncode = 0
     try:
         if shutil.which("tee"):
-            bash_pipe(command, f"tee {log_path}")
+            bash_pipe(command, f"tee {log_path}", env=env)
         else:
-            bash(command, log_path=log_path)
+            bash(command, log_path=log_path, env=env)
     except CalledProcessError as error:
         returncode = error.returncode
 
@@ -76,6 +83,7 @@ def run_unity_batchmode(
         raise SystemExit(f"Unity exited {returncode}; full editor log at {log_path}")
     if returncode != 0:
         print(f"  WARNING: Unity exited {returncode}; no package-manager failure found — full editor log at {log_path}")
+    return log_path
 
 
 def unity_batchmode_command(project_path: Path, nographics: bool = True, *, auto_quit: bool = True) -> str:
@@ -137,7 +145,7 @@ def editor_version(project_path: Path) -> str | None:
     return None
 
 
-def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str, str]:
+def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str, str, str]:
     projects = load_catalog()
     if project not in projects:
         raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
@@ -160,7 +168,12 @@ def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str, st
     if build not in PLATFORM_CONFIGS:
         raise SystemExit(f"No platform config for build '{build}'. Valid: {', '.join(PLATFORM_CONFIGS)}")
 
-    return project_config, PLATFORM_CONFIGS[build]["build_flag"], execute_method
+    return (
+        project_config,
+        PLATFORM_CONFIGS[build]["build_flag"],
+        execute_method,
+        PLATFORM_CONFIGS[build]["playerbuild_platform"],
+    )
 
 
 def prepare_unity_project(project_path: Path) -> None:
@@ -174,3 +187,27 @@ def prepare_unity_project(project_path: Path) -> None:
     if (project_path / "Assets" / "packages.config").exists():
         bash("dotnet tool restore")
         bash(f"dotnet nugetforunity restore {project_path}")
+
+
+def parse_environment_fields(entries: Sequence[str]) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for entry in entries:
+        line = entry.strip()
+        if not line:
+            continue
+        path, separator, value = line.partition("=")
+        if not separator or not path:
+            raise SystemExit(f"Invalid environment field entry (expected path=value): {entry!r}")
+        fields[path] = value
+    return fields
+
+
+def child_environment(platform: str, development: bool, environment: str, fields: dict[str, str]) -> dict[str, str]:
+    env = {"DEVELOPMENT": "true" if development else "false"}
+    if platform:
+        env["PLATFORM"] = platform
+    if environment:
+        env["ENVIRONMENT"] = environment
+    if fields:
+        env["ENVIRONMENT_FIELDS"] = json.dumps(fields)
+    return env
