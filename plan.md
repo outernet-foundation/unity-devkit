@@ -93,6 +93,11 @@ Apply's call); `BuildConfig`'s env content is the one-string class path; the win
 env pane is stripped (Phase 4 rebuilds it). Package net −168 lines.
 
 Session rulings that reshape the plan text — do not relitigate:
+- **The apply family lives in `PlayerBuild.cs`; `EnvironmentBuild.cs` never mutates state.**
+  `ApplyEnvironment`/`ApplyEnvironmentPreset` sit with `ApplyPlatformFacts`/`ApplyXr`/`ApplyPipeline`/
+  `ApplyAdditionalDefines` (the orchestrator's five steps co-located, per the owner's rule-7
+  ownership reading); EnvironmentBuild is purely the observer half — reflect the class into a
+  shape, emit the dump, parse the door payload. Amends the session's earlier whole-subsystem split.
 - **Resolve has no guard blocks.** `Single()` selections are the only check; every malformation
   (missing file, no class, wrong `Presets` shape, missing `TargetPath`, absent/duplicate mode
   field) degrades to a loud inscrutable BCL exception at the entry boundary. The owner accepted
