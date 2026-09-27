@@ -1373,7 +1373,12 @@ then returns to MIS per the punt's one-PR consolidation; all items below are unc
 operating mode and must be stripped before the consolidation PR (anything else landing on
 the fork during the window is permanent and rides the PR unchanged): ci.yml's `main` push
 trigger (added session 14 so main-push work CI's on the fork; prime's dev→release-PR→main
-flow would double-build every merge and race release.yml's artifact fetch under it). When
+flow would double-build every merge and race release.yml's artifact fetch under it), and
+`workloads/images.yml`'s hardcoded image namespace (`make-it-sing-fork` — the fork's
+GITHUB_TOKEN cannot push the prime's ghcr packages; mixed-case `GITHUB_REPOSITORY` blocks
+env interpolation because ghcr rejects uppercase refs, so the durable fix — docker-devkit
+exporting a lowercased repo var — is an upstream item; until then the namespace reverts
+to `make-it-sing` at consolidation). When
 the release-trigger rework lands, it joins this ledger if and only if its shape is
 fork-only — a ci.yml-completion `workflow_run` trigger filtered to the main ref is
 portable both ways and stays.
