@@ -31,7 +31,7 @@ One flat module per concern under `src/unity_devkit/`:
 
 Supporting modules: `projects.py` (catalog schema + loader, and the pruned tree walk that is cross-repo API), `unity.py` (editor lookup, platform configs, batchmode command, shared Unity runner), `versioning.py` (tag-ledger version computation and the `ProjectSettings.asset` stamping both build verbs share). The CI-floor modules (step wrapper, runner provisioning, ORAS artifact cache) live in [`ci-devkit`](https://github.com/outernet-foundation/ci-devkit) (a runtime dependency); unity-devkit owns only Unity concerns.
 
-The `PlayerBuild/` harness is this repo's one cataloged Unity project: a minimal Unity `6000.0.66f1` host (no scenes, no XR settings asset, no `build-config.json` — package entry paths fail loudly there by design) whose only job is compiling and developing `Assets/Package/`. C# style is the owner's ruleset recorded in the unitybuild record; CSharpier (`.csharpierrc.json` at the repo root, 120 cols) formats `PlayerBuild/Assets/Package/**/*.cs` — run `csharpier format` before committing C# changes. The package's architecture and semantics doc lives in its own shipped files plus the unitybuild record; the package convention summary: namespace `Outernet` flat, no unit tests ever (the compile gate is the test surface), `.meta` files committed alongside.
+The `PlayerBuild/` harness is this repo's one cataloged Unity project: a minimal Unity `6000.0.66f1` host (no scenes, no XR settings asset, no `build-config.json` — package entry paths fail loudly there by design) whose job is compiling and developing `Assets/Package/` and hosting the environment reflection fixture under `Assets/Editor/` (`FixtureEnv.cs` + a committed preset asset + the `EnvironmentFixtureSelfTest` driver that CI's execute-method door runs — harness test tooling, deliberately outside the shipped npm package). C# style is the owner's ruleset recorded in the unitybuild record; CSharpier (`.csharpierrc.json` at the repo root, 120 cols) formats `PlayerBuild/Assets/Package/**/*.cs` — run `csharpier format` before committing C# changes. The package's architecture and semantics doc lives in its own shipped files plus the unitybuild record; the package convention summary: namespace `Outernet` flat, no unit tests ever (the compile gate is the test surface), `.meta` files committed alongside.
 
 ## Constraints
 
@@ -53,6 +53,6 @@ The `PlayerBuild/` harness is this repo's one cataloged Unity project: a minimal
 
 ## See also
 
-- `plan.md` — the org.outernet.playerbuild initiative record (phases, verified facts F2–F36, the convergence method), moved here from the retired unitybuild repo; the remaining phases (3–8) are active work.
+- `plan.md` — the org.outernet.playerbuild initiative record (phases, verified facts F2–F36, the convergence method), moved here from the retired unitybuild repo; the remaining phases (4–8) are active work.
 - [`bashrun`](https://github.com/outernet-foundation/bashrun) — the shell-exec helpers this package uses everywhere (`bash`, `bash_output`, `bash_check`, `bash_handoff`).
 - `README.md` — human-facing setup, command catalog, and consumer install snippet.
