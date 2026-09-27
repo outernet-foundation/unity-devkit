@@ -957,6 +957,15 @@ fails the missing-method guard at build time, so the deletion must be released b
 drop the key. Accepted loss: the field was the last escape hatch for a bespoke consumer entry —
 ruled YAGNI (re-adding what the package exists to own).
 
+Same amendment, install pair: `package` (pre-install `adb uninstall`) and `grant_permissions`
+(post-install `pm grant`) leave the schema with their install-door logic and the
+`--no-grant-permissions` flag — device-state setup ruled not the installer's job. Accepted losses
+on record: reinstalls over an existing package now fail loudly until the human uninstalls (bare
+`adb install`, no `-r` — the data-wipe-on-reinstall semantics were never a requirement, just a
+side effect of the uninstall step); CT's READ_LOGS grant becomes a manual smoke-checklist step
+(signature-class permission; an app can never request it at runtime). CT drops both keys at its
+Phase 6 remainder; MIS drops `package` at Phase 7.
+
 Everything profiles-spine is superseded by this rewrite: Build Profile assets shipped in
 the package; the authoring pipeline (table → profile regeneration, bootstrap-by-copy,
 two-pass load-bound sessions, self-heal strip, drift gate, pair validation);
@@ -1025,19 +1034,25 @@ committed preset asset carrying today's `airgapped-settings.json` values; rewire
 `SettingsManager`'s baked branch from `TextAsset`+SimpleJSON to
 `Resources.Load<CaptureEnv>` seeding `SettingsState` (the `persistentDataPath`
 write-back chain stays untouched); delete `airgapped-settings.json`. Devkit-side prerequisite
-(2026-09-27 amendment, session 10): **delete `execute_methods` from the catalog schema** —
-`Outernet.PlayerBuild.Entry` is the one canonical entrypoint (parameterless; platform rides
-`PLATFORM`), so the per-build map is degenerate the moment both flips land; inline the constant at
-`resolve_unity_build`'s single lookup, shrink its 3-tuple, delete the missing-method guard, tests
-follow. Sequencing: the field is Optional, so keyless catalogs always load — but a keyless catalog
-run against a devkit that still has the field dies at the missing-method guard, so the deletion must
-be on PyPI before consumer catalogs drop the key. It rides the same release CT's remainder gates on
-if implemented before the operator push; if the push has already fired, it rides the next release
-and CT's key-drop splits into a follow-up. Then: npm-pin the
+(2026-09-27 amendment, session 10): **shrink the catalog schema — `execute_methods`, `package`, and
+`grant_permissions` die.** `Outernet.PlayerBuild.Entry` is the one canonical entrypoint
+(parameterless; platform rides `PLATFORM`), so the per-build map is degenerate the moment both flips
+land; inline the constant at `resolve_unity_build`'s single lookup, shrink its 3-tuple, delete the
+missing-method guard, tests follow. `package`/`grant_permissions` were install-door conveniences
+(pre-install `adb uninstall`, post-install `pm grant`) ruled cruft-or-wrong-place by the owner: the
+surviving ADB branch is bare `adb install` (a reinstall over an existing package fails loudly —
+the human uninstalls; accepted) and permission grants move out of the tool entirely (CT's READ_LOGS
+is a smoke-checklist step; a signature-class permission was never the installer's job to make
+permanent). Sequencing, all three fields: they are Optional, so keyless catalogs always load — but
+a keyless catalog run against a devkit that still has the field dies at the missing-method guard
+(`execute_methods` only), so the deletion must be on PyPI before consumer catalogs drop the keys.
+It rides the same release CT's remainder gates on if implemented before the operator push; if the
+push has already fired, it rides the next release and CT's key-drop splits into a follow-up. Then:
+npm-pin the
 package; `build-config.json` with the class-path `environment_config` +
 `platforms["AndroidMobile"]`; migrate CI `--build-env CONFIG_TYPE=default` →
-`--environment-preset`; catalog entry drops `execute_methods` (keyless per the deletion above);
-generate the dispatch-wrapper
+`--environment-preset`; catalog entry drops `execute_methods` + `package` + `grant_permissions`
+(keyless per the deletion above); generate the dispatch-wrapper
 workflow; delete `Assets/Editor/BuildScript.cs`; `compile-unity` local build; APK smoke
 (`aapt` versionName/Code vs the stamp); the open Phase 1 acceptance probe
 (hand-vandalize an applied global, build, expect the loud "run Apply" preprocessor
@@ -1051,7 +1066,7 @@ SHA to operator.
 stale `room:` shape). **`ConfigMode` + `ResolveEffective` survive — no deletion** (owner
 reversal). **Delete `UnityEnvInspector.cs`** (subsumed — F34; stub fallback on record).
 Both platforms with pipeline assets; `--build-env` migration; catalog goes keyless directly
-(`execute_methods` deleted outright — MIS never carries the collapsed map); dispatch workflow; define renames in app code (`OUTERNET_*`); delete
+(`execute_methods` + `package` deleted outright — MIS never carries the collapsed map); dispatch workflow; define renames in app code (`OUTERNET_*`); delete
 `Assets/Settings/Build Profiles/Magic Leap 2.asset` (F19); delete the
 `Build > Configure` menu items and `BuildScript.cs`'s configure functions; **rewire
 `CreateAssetBundles.cs` + `AssetBundleManagerWindow.cs` to the package's apply + verify

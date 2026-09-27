@@ -1,6 +1,6 @@
 # unity-devkit
 
-Unity build, license, and CI tooling. Projects are declared in a root `unity-devkit.json` catalog: each entry maps a stable project name to its path plus optional build intent (`builds`, `execute_methods`, `package`, `grant_permissions`, `tag_prefix`). Every command resolves projects through the catalog — absence from the catalog is the exclusion mechanism — and `ProjectSettings/ProjectVersion.txt` inside each project remains the editor-version truth. Paired with the reusable [`unity-build.yml`](https://github.com/outernet-foundation/unity-devkit/blob/main/.github/workflows/unity-build.yml) GitHub Actions workflow hosted here — consumers call it cross-repo pinned to a pushed SHA with `secrets: inherit`.
+Unity build, license, and CI tooling. Projects are declared in a root `unity-devkit.json` catalog: each entry maps a stable project name to its path plus optional build intent (`builds`, `execute_methods`, `tag_prefix`). Every command resolves projects through the catalog — absence from the catalog is the exclusion mechanism — and `ProjectSettings/ProjectVersion.txt` inside each project remains the editor-version truth. Paired with the reusable [`unity-build.yml`](https://github.com/outernet-foundation/unity-devkit/blob/main/.github/workflows/unity-build.yml) GitHub Actions workflow hosted here — consumers call it cross-repo pinned to a pushed SHA with `secrets: inherit`.
 
 ## Setup
 
