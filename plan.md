@@ -119,8 +119,12 @@ Session rulings that reshape the plan text — do not relitigate:
   check wearing a guard's badge. The env read-back lives in the self-test as independent typed
   assertions. **Supersedes session 2's "the shared check grows the env rows"** and Phase 3's
   read-back clause as written.
+- **The dump emits bare JSON, no log marker.** The payload is its own discriminator (a log line that
+  parses as a JSON object with `class_name`); Phase 5's generator extracts structurally — schema
+  coupling instead of a magic-string spelling shared across two languages.
 - `ENVIRONMENT_CLASS=""` throws (loud) instead of falling back to config — the `??` collapse of
-  the empty-string edge; no door sets it empty.
+  the empty-string edge; no door sets it empty. The env var itself is spelled
+  `ENVIRONMENT_CONFIG_CLASS` (renamed from `ENVIRONMENT_CLASS`).
 
 Fixture (harness-side, never shipped — outside `Assets/Package/`): `FixtureEnv.cs` (the env class
 in a file named for the class — `MonoScript.GetClass()` resolves by filename; the first attempt was
