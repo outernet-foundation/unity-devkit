@@ -94,9 +94,10 @@ Phase 5 executed in full: the Python half plus the release preparation. Landed:
   `AndroidMobile`, `magicleap` → `MagicLeap2`; `linux64`/`win64` carry `""` — their execute methods are
   consumer-owned). `resolve_unity_build` returns the 4-tuple including the platform name.
 - **Doors.** `compile-unity`: `--development` bool flag, `--environment-preset <name>`, repeatable
-  `--environment-field path=value`. `build-unity`: `--environment-preset`,
-  `--development` (validated `'true'`/`'false'` string — workflow booleans arrive as strings; the two
-  doors' skins differ, the transport spelling is one), `--environment-fields` (newline `path=value` — the
+  `--environment-field path=value`. `build-unity`: `--environment-preset`, `--development` (bool flag —
+  owner ruling: the CLI is typed, the consumer renders; the workflow emits
+  `${{ inputs.development && '--development' || '' }}` and simply omits the flag for release — no
+  `--no-development` spelling exists), `--environment-fields` (newline `path=value` — the
   shape the generated dispatch workflow emits). `--build-env` and its KEY=VALUE loop are deleted.
 - **`unity-build.yml`**: `build-env` input replaced by `environment`/`development`/`environment-fields`
   (repo-agnostic — per-field inputs live only in the consumer's generated wrapper). Known consequence on
