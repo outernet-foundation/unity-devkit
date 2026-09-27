@@ -7,6 +7,24 @@ using UnityEditor.Build.Reporting;
 namespace Outernet
 {
     [Serializable]
+    public sealed class BuildReportStep
+    {
+        public string name;
+        public string duration;
+
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public List<BuildReportStep> steps;
+    }
+
+    [Serializable]
+    public sealed class BuildReportMessage
+    {
+        public string content;
+        public string type;
+        public string step;
+    }
+
+    [Serializable]
     public sealed class SerializableBuildReport
     {
         public string result;
@@ -54,23 +72,5 @@ namespace Outernet
             }
             return (steps, messages);
         }
-    }
-
-    [Serializable]
-    public sealed class BuildReportStep
-    {
-        public string name;
-        public string duration;
-
-        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public List<BuildReportStep> steps;
-    }
-
-    [Serializable]
-    public sealed class BuildReportMessage
-    {
-        public string content;
-        public string type;
-        public string step;
     }
 }
