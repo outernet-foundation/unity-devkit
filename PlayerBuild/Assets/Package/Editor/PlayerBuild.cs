@@ -249,40 +249,49 @@ namespace Outernet
                 return;
             }
 
-            EnvironmentShape shape = EnvironmentConfig.ResolveEnvironment(classPath);
+            EnvironmentConfig environmentConfig = new(classPath);
             bool applyingPreset = environment.Length > 0;
             if (applyingPreset)
             {
-                ApplyEnvironmentPreset(shape, environment);
+                ApplyEnvironmentPreset(environmentConfig, environment);
             }
 
-            UnityEngine.Object targetAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(shape.TargetPath);
+            UnityEngine.Object targetAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(
+                environmentConfig.TargetPath
+            );
             if (targetAsset == null)
             {
-                throw new BuildFailedException($"No environment asset at '{shape.TargetPath}' — apply a preset first");
+                throw new BuildFailedException(
+                    $"No environment asset at '{environmentConfig.TargetPath}' — apply a preset first"
+                );
             }
 
             var serialized = new SerializedObject(targetAsset);
-            SerializedProperty modeProperty = applyingPreset ? serialized.FindProperty(shape.ModeFieldName) : null;
+            SerializedProperty modeProperty = applyingPreset
+                ? serialized.FindProperty(environmentConfig.ModeFieldName)
+                : null;
             if (applyingPreset && modeProperty == null)
             {
                 throw new BuildFailedException(
-                    $"The asset at '{shape.TargetPath}' has no '{shape.ModeFieldName}' field — the preset is stale against the class, re-save it"
+                    $"The asset at '{environmentConfig.TargetPath}' has no '{environmentConfig.ModeFieldName}' field "
+                        + "— the preset is stale against the class, re-save it"
                 );
             }
 
             if (modeProperty != null)
             {
-                modeProperty.intValue = (int)Enum.Parse(shape.ModeEnumType, environment, true);
+                modeProperty.intValue = (int)Enum.Parse(environmentConfig.ModeEnumType, environment, true);
             }
 
             foreach (KeyValuePair<string, string> entry in fields)
             {
-                EnvironmentFieldLeaf leaf = shape.Fields.FirstOrDefault(candidate => candidate.Path == entry.Key);
+                EnvironmentFieldLeaf leaf = environmentConfig.Fields.FirstOrDefault(candidate =>
+                    candidate.Path == entry.Key
+                );
                 if (leaf == null)
                 {
                     throw new BuildFailedException(
-                        $"Unknown environment field '{entry.Key}' (declared: {string.Join(", ", shape.Fields.Select(candidate => candidate.Path))})"
+                        $"Unknown environment field '{entry.Key}' (declared: {string.Join(", ", environmentConfig.Fields.Select(candidate => candidate.Path))})"
                     );
                 }
 
@@ -290,7 +299,7 @@ namespace Outernet
                 if (property == null)
                 {
                     throw new BuildFailedException(
-                        $"Environment field '{entry.Key}' is absent from '{shape.TargetPath}' — the asset is stale against the class, re-save it"
+                        $"Environment field '{entry.Key}' is absent from '{environmentConfig.TargetPath}' — the asset is stale against the class, re-save it"
                     );
                 }
 
@@ -307,16 +316,16 @@ namespace Outernet
             serialized.ApplyModifiedProperties();
             AssetDatabase.SaveAssets();
             Debug.Log(
-                $"[playerbuild] environment '{environment}' applied to {shape.TargetPath} ({fields.Count} override(s))"
+                $"[playerbuild] environment '{environment}' applied to {environmentConfig.TargetPath} ({fields.Count} override(s))"
             );
         }
 
-        private static void ApplyEnvironmentPreset(EnvironmentShape shape, string environment)
+        private static void ApplyEnvironmentPreset(EnvironmentConfig environmentConfig, string environment)
         {
-            if (!shape.Presets.TryGetValue(environment, out string sourcePath))
+            if (!environmentConfig.Presets.TryGetValue(environment, out string sourcePath))
             {
                 throw new BuildFailedException(
-                    $"Unknown environment '{environment}' (declared: {string.Join(", ", shape.Presets.Keys)})"
+                    $"Unknown environment '{environment}' (declared: {string.Join(", ", environmentConfig.Presets.Keys)})"
                 );
             }
 
@@ -325,7 +334,7 @@ namespace Outernet
                 throw new BuildFailedException($"Preset asset not found at '{sourcePath}'");
             }
 
-            string[] segments = Path.GetDirectoryName(shape.TargetPath)!.Replace('\\', '/').Split('/');
+            string[] segments = Path.GetDirectoryName(environmentConfig.TargetPath)!.Replace('\\', '/').Split('/');
             string currentFolder = segments[0];
             for (int index = 1; index < segments.Length; index++)
             {
@@ -338,13 +347,15 @@ namespace Outernet
                 currentFolder = nextFolder;
             }
 
-            AssetDatabase.DeleteAsset(shape.TargetPath);
-            if (!AssetDatabase.CopyAsset(sourcePath, shape.TargetPath))
+            AssetDatabase.DeleteAsset(environmentConfig.TargetPath);
+            if (!AssetDatabase.CopyAsset(sourcePath, environmentConfig.TargetPath))
             {
-                throw new BuildFailedException($"Failed to copy environment asset {sourcePath} -> {shape.TargetPath}");
+                throw new BuildFailedException(
+                    $"Failed to copy environment asset {sourcePath} -> {environmentConfig.TargetPath}"
+                );
             }
 
-            Debug.Log($"[playerbuild] preset '{environment}' copied {sourcePath} -> {shape.TargetPath}");
+            Debug.Log($"[playerbuild] preset '{environment}' copied {sourcePath} -> {environmentConfig.TargetPath}");
         }
 
         public static void ApplyXr(PlatformSpec spec)

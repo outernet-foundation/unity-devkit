@@ -16,7 +16,7 @@ namespace Outernet
         public Type FieldType = null!;
     }
 
-    public sealed class EnvironmentShape
+    public sealed class EnvironmentConfig
     {
         public Type ClassType = null!;
         public Type ModeEnumType = null!;
@@ -24,10 +24,7 @@ namespace Outernet
         public string TargetPath = "";
         public Dictionary<string, string> Presets = new(StringComparer.OrdinalIgnoreCase);
         public List<EnvironmentFieldLeaf> Fields = new();
-    }
 
-    public static class EnvironmentConfig
-    {
         public static void DumpEnvironment()
         {
             string classPath =
@@ -40,16 +37,16 @@ namespace Outernet
                 );
             }
 
-            EnvironmentShape shape = ResolveEnvironment(classPath);
+            EnvironmentConfig environmentConfig = new(classPath);
             Debug.Log(
                 JsonConvert.SerializeObject(
                     new
                     {
-                        class_name = shape.ClassType.FullName,
-                        mode_field = shape.ModeFieldName,
-                        target_path = shape.TargetPath,
-                        presets = shape.Presets,
-                        enums = shape
+                        class_name = environmentConfig.ClassType.FullName,
+                        mode_field = environmentConfig.ModeFieldName,
+                        target_path = environmentConfig.TargetPath,
+                        presets = environmentConfig.Presets,
+                        enums = environmentConfig
                             .Fields.Where(leaf => leaf.FieldType.IsEnum)
                             .Select(leaf => leaf.FieldType)
                             .Distinct()
@@ -59,7 +56,7 @@ namespace Outernet
                                 values = Enum.GetNames(type),
                                 flags = type.IsDefined(typeof(FlagsAttribute), false),
                             }),
-                        fields = shape.Fields.Select(leaf => new
+                        fields = environmentConfig.Fields.Select(leaf => new
                         {
                             path = leaf.Path,
                             field_type = leaf.FieldType.Name,
@@ -69,37 +66,32 @@ namespace Outernet
             );
         }
 
-        public static EnvironmentShape ResolveEnvironment(string classPath)
+        public EnvironmentConfig(string classPath)
         {
-            Type classType = AssetDatabase.LoadAssetAtPath<MonoScript>(classPath)!.GetClass()!;
-            FieldInfo[] staticFields = classType.GetFields(BindingFlags.Public | BindingFlags.Static);
+            ClassType = AssetDatabase.LoadAssetAtPath<MonoScript>(classPath)!.GetClass()!;
+            FieldInfo[] staticFields = ClassType.GetFields(BindingFlags.Public | BindingFlags.Static);
             FieldInfo presetsField = staticFields.Single(field => field.Name == "Presets");
             Type dictionaryInterface = presetsField.FieldType.GetInterface("System.Collections.Generic.IDictionary`2");
-            EnvironmentShape shape = new()
-            {
-                ClassType = classType,
-                ModeEnumType =
-                    dictionaryInterface != null
-                    && dictionaryInterface.GetGenericArguments()[0].IsEnum
-                    && dictionaryInterface.GetGenericArguments()[1] == typeof(string)
-                        ? dictionaryInterface.GetGenericArguments()[0]
-                        : null!,
-            };
+            ModeEnumType =
+                dictionaryInterface != null
+                && dictionaryInterface.GetGenericArguments()[0].IsEnum
+                && dictionaryInterface.GetGenericArguments()[1] == typeof(string)
+                    ? dictionaryInterface.GetGenericArguments()[0]
+                    : null!;
             foreach (DictionaryEntry presetEntry in (System.Collections.IDictionary)presetsField.GetValue(null)!)
             {
-                shape.Presets[presetEntry.Key.ToString()!] = (string)presetEntry.Value!;
+                Presets[presetEntry.Key.ToString()!] = (string)presetEntry.Value!;
             }
 
-            shape.TargetPath = (string)
+            TargetPath = (string)
                 staticFields
                     .Single(field => field.Name == "TargetPath" && field.FieldType == typeof(string))
                     .GetValue(null)!;
-            shape.ModeFieldName = classType
+            ModeFieldName = ClassType
                 .GetFields(BindingFlags.Public | BindingFlags.Instance)
-                .Single(field => field.FieldType == shape.ModeEnumType)
+                .Single(field => field.FieldType == ModeEnumType)
                 .Name;
-            CollectEnvironmentLeaves(classType, "", shape.Fields);
-            return shape;
+            CollectEnvironmentLeaves(ClassType, "", Fields);
         }
 
         private static void CollectEnvironmentLeaves(
