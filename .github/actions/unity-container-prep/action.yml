@@ -1,0 +1,45 @@
+name: Unity container prep
+description: Wipe, checkout, uv setup, and license restore — the front-matter of every per-project Unity container job
+
+inputs:
+  cache-tag:
+    description: License cache tag to restore the activated license from
+    required: true
+  github-token:
+    required: true
+  unity-email:
+    required: true
+  unity-password:
+    required: true
+  unity-serial:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Wipe workspace
+      shell: bash
+      run: |
+        find "$GITHUB_WORKSPACE" -mindepth 1 -delete
+        rm -rf ~/.cache/Unity
+
+    - uses: actions/checkout@v5
+
+    - uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+        save-cache: "false"
+
+    - name: Sync dependencies
+      shell: bash
+      run: uv sync
+
+    - name: Activate Unity license
+      shell: bash
+      run: uv run --no-sync activate-unity-license --oras-push
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        LICENSE_CACHE_TAG: ${{ inputs.cache-tag }}
+        UNITY_EMAIL: ${{ inputs.unity-email }}
+        UNITY_PASSWORD: ${{ inputs.unity-password }}
+        UNITY_SERIAL: ${{ inputs.unity-serial }}

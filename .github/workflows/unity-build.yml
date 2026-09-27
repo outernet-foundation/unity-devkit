@@ -23,64 +23,15 @@ env:
   CACHE_REGISTRY: ghcr.io/${{ github.repository }}/cache
 
 jobs:
-  matrix:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      build-matrix: ${{ steps.generate.outputs.matrix }}
-      license-image: ${{ steps.generate.outputs.license-image }}
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          save-cache: "false"
-
-      - name: Sync dependencies
-        run: uv sync
-
-      - name: Generate build matrix
-        id: generate
-        run: uv run --no-sync unity-matrix >> "$GITHUB_OUTPUT"
-
-  activate-license:
-    needs: [matrix]
-    runs-on: ${{ fromJSON(inputs.runner-labels) }}
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      cache-tag: ${{ steps.tag.outputs.value }}
-    container:
-      image: ${{ needs.matrix.outputs.license-image }}
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          save-cache: "false"
-
-      - name: Sync dependencies
-        run: uv sync
-
-      - name: Compute license cache tag
-        id: tag
-        run: echo "value=$(uv run --no-sync unity-license-tag)" >> "$GITHUB_OUTPUT"
-
-      - name: Activate Unity license
-        run: uv run --no-sync activate-unity-license --oras-push
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          LICENSE_CACHE_TAG: ${{ steps.tag.outputs.value }}
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+  prepare:
+    uses: ./.github/workflows/unity-prepare.yml
+    with:
+      runner-labels: ${{ inputs.runner-labels }}
+      matrix-command: uv run --no-sync unity-matrix
+    secrets: inherit
 
   build-unity:
-    needs: [matrix, activate-license]
+    needs: [prepare]
     name: ${{ matrix.project-name }} (${{ matrix.platform }})
     runs-on: ${{ fromJSON(inputs.runner-labels) }}
     permissions:
@@ -90,22 +41,15 @@ jobs:
       image: ${{ matrix.editor-image }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.matrix.outputs.build-matrix) }}
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
-      - name: Wipe workspace
-        run: |
-          find "$GITHUB_WORKSPACE" -mindepth 1 -delete
-          rm -rf ~/.cache/Unity
-
-      - uses: actions/checkout@v5
-
-      - uses: astral-sh/setup-uv@v7
+      - uses: ./.github/actions/unity-container-prep
         with:
-          enable-cache: true
-          save-cache: "false"
-
-      - name: Sync dependencies
-        run: uv sync
+          cache-tag: ${{ needs.prepare.outputs.cache-tag }}
+          github-token: ${{ github.token }}
+          unity-email: ${{ secrets.UNITY_EMAIL }}
+          unity-password: ${{ secrets.UNITY_PASSWORD }}
+          unity-serial: ${{ secrets.UNITY_SERIAL }}
 
       - name: Cache UPM packages
         uses: actions/cache@v5
@@ -116,7 +60,7 @@ jobs:
       - name: Build
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          LICENSE_CACHE_TAG: ${{ needs.activate-license.outputs.cache-tag }}
+          LICENSE_CACHE_TAG: ${{ needs.prepare.outputs.cache-tag }}
           BUILD_ENV: ${{ inputs.build-env }}
         run: |
           uv run --no-sync build-unity \
