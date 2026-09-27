@@ -7,7 +7,7 @@ on:
         description: JSON-encoded runs-on value (string or array) for the license/build jobs
         type: string
         default: '"ubuntu-latest"'
-      environment:
+      environment-preset:
         description: Environment preset name (the consumer env class's Presets key); empty leaves the workspace untouched
         type: string
         default: ''
@@ -86,7 +86,7 @@ jobs:
             --run-number ${{ github.run_number }} \
             --branch ${{ github.head_ref || github.ref_name }} \
             --registry "$CACHE_REGISTRY" \
-            --environment "${{ inputs.environment }}" \
+            --environment-preset "${{ inputs['environment-preset'] }}" \
             --development ${{ inputs.development }} \
             --environment-fields "$ENVIRONMENT_FIELDS_INPUT"
 

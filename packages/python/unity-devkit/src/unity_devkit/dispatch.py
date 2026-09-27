@@ -65,7 +65,7 @@ def unity_dispatch(
             "(owner/repo/.github/workflows/unity-build.yml@sha, or ./.github/workflows/unity-build.yml inside unity-devkit)"
         ),
     ],
-    environment_class: Annotated[
+    environment_config_class: Annotated[
         str | None,
         typer.Option(help="Env class file path override (defaults to build-config.json's environment_config)"),
     ] = None,
@@ -78,7 +78,7 @@ def unity_dispatch(
         raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
 
     project_path = projects[project].path
-    env = {"ENVIRONMENT_CONFIG_CLASS": environment_class} if environment_class else None
+    env = {"ENVIRONMENT_CONFIG_CLASS": environment_config_class} if environment_config_class else None
     print(f"Dumping environment of {project}...")
     prepare_unity_project(project_path)
     log_path = run_unity_batchmode(
@@ -126,7 +126,7 @@ def render_dispatch_workflow(dump: EnvironmentDump, *, project: str, output: str
     enums_by_name = {environment_enum.name: environment_enum for environment_enum in dump.enums}
     input_blocks: list[tuple[str, str, list[str], str | None]] = [
         (
-            "environment",
+            "environment-preset",
             "Environment preset (Presets key) — empty leaves the workspace untouched",
             ["type: choice", "options:", *indent_lines([*(f'- "{preset}"' for preset in ("", *dump.presets))], 2)],
             'default: ""',
@@ -165,7 +165,7 @@ def render_dispatch_workflow(dump: EnvironmentDump, *, project: str, output: str
         "  build:",
         f"    uses: {build_workflow}",
         "    with:",
-        "      environment: ${{ inputs.environment }}",
+        "      environment-preset: ${{ inputs['environment-preset'] }}",
         "      development: ${{ inputs.development }}",
     ]
     if transport_lines:

@@ -38,7 +38,7 @@ def main(
     registry: Annotated[str, typer.Option(help="OCI registry path")],
     run_number: Annotated[int, typer.Option(help="CI run number")] = 0,
     branch: Annotated[str, typer.Option(help="Git branch name")] = "dev",
-    environment: Annotated[
+    environment_preset: Annotated[
         str, typer.Option(help="Environment preset name; empty leaves the workspace untouched")
     ] = "",
     development: Annotated[str, typer.Option(help="Development build column: 'true' or 'false'")] = "false",
@@ -83,7 +83,7 @@ def main(
             full_version = stamp_build_version(unity_project_path, tag_prefix, run_number, release=(branch == "main"))
             print(f"Stamped bundleVersion {full_version} (bundleVersionCode={run_number}) into ProjectSettings")
 
-        env = child_environment(playerbuild_platform, development == "true", environment, fields)
+        env = child_environment(playerbuild_platform, development == "true", environment_preset, fields)
         run_unity_batchmode(
             unity_project_path, f"{build_flag} -executeMethod {execute_method}", nographics=False, env=env
         )

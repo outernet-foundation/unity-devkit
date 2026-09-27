@@ -202,12 +202,14 @@ def parse_environment_fields(entries: Sequence[str]) -> dict[str, str]:
     return fields
 
 
-def child_environment(platform: str, development: bool, environment: str, fields: dict[str, str]) -> dict[str, str]:
+def child_environment(
+    platform: str, development: bool, environment_preset: str, fields: dict[str, str]
+) -> dict[str, str]:
     env = {"DEVELOPMENT": "true" if development else "false"}
     if platform:
         env["PLATFORM"] = platform
-    if environment:
-        env["ENVIRONMENT"] = environment
+    if environment_preset:
+        env["ENVIRONMENT"] = environment_preset
     if fields:
         env["ENVIRONMENT_FIELDS"] = json.dumps(fields)
     return env

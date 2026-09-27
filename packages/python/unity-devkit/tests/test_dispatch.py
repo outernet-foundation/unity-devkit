@@ -99,7 +99,7 @@ def test_rendered_workflow_is_valid_yaml() -> None:
     trigger = document.get("on", document[True])
     inputs = trigger["workflow_dispatch"]["inputs"]
     assert list(inputs) == [
-        "environment",
+        "environment-preset",
         "development",
         "username",
         "password",
@@ -111,6 +111,9 @@ def test_rendered_workflow_is_valid_yaml() -> None:
     ]
     assert document["jobs"]["build"]["uses"] == PINNED_BUILD_WORKFLOW
     assert document["jobs"]["build"]["secrets"] == "inherit"
+    with_block = document["jobs"]["build"]["with"]
+    assert with_block["environment-preset"] == "__EXPR_OPEN__ inputs['environment-preset'] __EXPR_CLOSE__"
+    assert with_block["development"] == "__EXPR_OPEN__ inputs.development __EXPR_CLOSE__"
 
 
 def test_render_header_embeds_the_full_regen_command() -> None:
@@ -158,7 +161,9 @@ def test_parse_environment_fields_rejects_bare_path() -> None:
 
 
 def test_child_environment_carries_the_entry_contract() -> None:
-    env = child_environment("AndroidMobile", development=True, environment="airgapped", fields={"username": "bot"})
+    env = child_environment(
+        "AndroidMobile", development=True, environment_preset="airgapped", fields={"username": "bot"}
+    )
 
     assert env == {
         "PLATFORM": "AndroidMobile",
@@ -169,6 +174,6 @@ def test_child_environment_carries_the_entry_contract() -> None:
 
 
 def test_child_environment_empty_is_development_only() -> None:
-    env = child_environment("", development=False, environment="", fields={})
+    env = child_environment("", development=False, environment_preset="", fields={})
 
     assert env == {"DEVELOPMENT": "false"}

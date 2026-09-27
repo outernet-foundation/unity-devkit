@@ -24,7 +24,7 @@ def compile_unity(
     ] = False,
     run_number: Annotated[int, typer.Option(help="bundleVersionCode to stamp; local builds default to 0")] = 0,
     development: Annotated[bool, typer.Option(help="Development build column")] = False,
-    environment: Annotated[
+    environment_preset: Annotated[
         str,
         typer.Option(
             help="Environment preset name (the env class's Presets key); unset leaves the workspace untouched"
@@ -42,7 +42,7 @@ def compile_unity(
         stamp_version=stamp_version,
         run_number=run_number,
         development=development,
-        environment=environment,
+        environment_preset=environment_preset,
         environment_fields=fields,
     ):
         print(f"Built: {artifact}")
@@ -55,7 +55,7 @@ def build_unity_project(
     stamp_version: bool = False,
     run_number: int = 0,
     development: bool = False,
-    environment: str = "",
+    environment_preset: str = "",
     environment_fields: dict[str, str] | None = None,
 ) -> list[Path]:
     project_config, build_flag, execute_method, playerbuild_platform = resolve_unity_build(project, build)
@@ -72,7 +72,7 @@ def build_unity_project(
     build_directory = project_path / "Build"
     before = snapshot_artifacts(build_directory)
 
-    env = child_environment(playerbuild_platform, development, environment, environment_fields or {})
+    env = child_environment(playerbuild_platform, development, environment_preset, environment_fields or {})
     run_unity_batchmode(project_path, f"{build_flag} -executeMethod {execute_method}", nographics=False, env=env)
 
     after = snapshot_artifacts(build_directory)
