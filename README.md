@@ -47,3 +47,5 @@ uv run ruff format --check .
 uv run basedpyright
 uv run pytest
 ```
+
+The C# half (`PlayerBuild/Assets/Package/`, the `org.outernet.playerbuild` UPM package) compiles through `uv run check-unity --project PlayerBuild` and formats with CSharpier (`csharpier format PlayerBuild/Assets/Package`).
