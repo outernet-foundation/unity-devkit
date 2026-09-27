@@ -636,9 +636,13 @@ devkit's global version stamp always binds.
 
 ### Version discipline
 
-devkit stamps `bundleVersion`/`AndroidBundleVersionCode` into global
-`ProjectSettings/ProjectSettings.asset` pre-batchmode; nothing exists in CI to shadow it.
-On editor machines the ambient version is whatever globals say (as today). No package
+The build doors stamp a caller-supplied `--version` string (verbatim) plus the run number as
+`AndroidBundleVersionCode` into global `ProjectSettings/ProjectSettings.asset` pre-batchmode;
+nothing exists in CI to shadow it. unity-devkit derives nothing — no ledger queries, no tag
+prefixes (the catalog's `tag_prefix` and `versioning.py`'s tag-query clone are dead; the version
+ledger is release-devkit's sole concern, exposed for build-time use by its `app-build-version`
+verb, and consumers bridge the two in their own workflows through the hosted workflow's `version`
+input). On editor machines the ambient version is whatever globals say (as today). No package
 involvement.
 
 ### Environment model — class-sourced (2026-09-27 amendment; supersedes rewrite 2's carryover)
@@ -966,6 +970,24 @@ side effect of the uninstall step); CT's READ_LOGS grant becomes a manual smoke-
 (signature-class permission; an app can never request it at runtime). CT drops both keys at its
 Phase 6 remainder; MIS drops `package` at Phase 7.
 
+Same amendment, versioning boundary (the owner's encapsulation ruling): **build tools take
+versions as inputs and never derive them.** `versioning.py`'s ledger query was a verbatim clone of
+release-devkit's `list_tag_versions` and the catalog's `tag_prefix` a duplicate of
+release-devkit.json's app entry — three copies of one concept, the residue of a boundary never
+resolved (the old "version-ledger primitives live in release-devkit and are not imported here"
+line was the smell made policy). The corrected cut: WHAT version (derivation from the ledger)
+belongs to release-devkit alone, exposed for build-time use by its new `app-build-version` verb;
+HOW to stamp belongs to each build tool (the ProjectSettings writer is what remains of
+`versioning.py`); TRANSPORT is an explicit parameter at the workflow boundary, composed by the
+consumer — the same pattern as `PLATFORM`/`DEVELOPMENT`/`ENVIRONMENT_FIELDS`. The law the owner
+stated: the string "release-devkit" appears nowhere in unity-devkit's code, workflows, or configs
+— unity-devkit stamps whatever opaque string it is handed and does not care where it came from.
+`--stamp-version` (self-deriving bool) died with it, replaced by `--version <string>` on both
+build verbs; `AndroidBundleVersionCode` stays the run number (a CI fact, no ledger); the dev/release
+`-dev+run` spelling convention moved to the verb (`GITHUB_REF_NAME == "main"` → release spelling,
+preserving the old `branch == "main"` behavior). The hosted workflow's `version` input is optional
+and SHA-pin compatible; the `bundleVersion` string is treated as opaque.
+
 Everything profiles-spine is superseded by this rewrite: Build Profile assets shipped in
 the package; the authoring pipeline (table → profile regeneration, bootstrap-by-copy,
 two-pass load-bound sessions, self-heal strip, drift gate, pair validation);
@@ -1034,25 +1056,26 @@ committed preset asset carrying today's `airgapped-settings.json` values; rewire
 `SettingsManager`'s baked branch from `TextAsset`+SimpleJSON to
 `Resources.Load<CaptureEnv>` seeding `SettingsState` (the `persistentDataPath`
 write-back chain stays untouched); delete `airgapped-settings.json`. Devkit-side prerequisite
-(2026-09-27 amendment, session 10): **shrink the catalog schema — `execute_methods`, `package`, and
-`grant_permissions` die.** `Outernet.PlayerBuild.Entry` is the one canonical entrypoint
-(parameterless; platform rides `PLATFORM`), so the per-build map is degenerate the moment both flips
-land; inline the constant at `resolve_unity_build`'s single lookup, shrink its 3-tuple, delete the
-missing-method guard, tests follow. `package`/`grant_permissions` were install-door conveniences
-(pre-install `adb uninstall`, post-install `pm grant`) ruled cruft-or-wrong-place by the owner: the
-surviving ADB branch is bare `adb install` (a reinstall over an existing package fails loudly —
-the human uninstalls; accepted) and permission grants move out of the tool entirely (CT's READ_LOGS
-is a smoke-checklist step; a signature-class permission was never the installer's job to make
-permanent). Sequencing, all three fields: they are Optional, so keyless catalogs always load — but
-a keyless catalog run against a devkit that still has the field dies at the missing-method guard
-(`execute_methods` only), so the deletion must be on PyPI before consumer catalogs drop the keys.
-It rides the same release CT's remainder gates on if implemented before the operator push; if the
-push has already fired, it rides the next release and CT's key-drop splits into a follow-up. Then:
-npm-pin the
+(2026-09-27 amendment, session 10 — **executed same session, pre-push, riding the pending release**):
+**the catalog schema shrank to `path` + `builds` — `execute_methods`, `package`, `grant_permissions`,
+and `tag_prefix` are dead.** `Outernet.PlayerBuild.Entry` is the one canonical entrypoint
+(parameterless; platform rides `PLATFORM`), so the per-build map was degenerate; the constant lives
+as `PLAYERBUILD_ENTRY` in `unity.py`, `resolve_unity_build` returns a 2-tuple, the missing-method
+guard is gone. `package`/`grant_permissions` were install-door conveniences (pre-install
+`adb uninstall`, post-install `pm grant`) ruled cruft-or-wrong-place by the owner: the surviving ADB
+branch is bare `adb install` (a reinstall over an existing package fails loudly — the human
+uninstalls; accepted) and permission grants move out of the tool entirely (CT's READ_LOGS is a
+smoke-checklist step; a signature-class permission was never the installer's job to make permanent).
+`tag_prefix` died with the versioning-boundary ruling below. Sequencing, all four fields: they were
+Optional, so keyless catalogs load against old and new devkit alike — the ordering constraint is
+that the deletion must be on PyPI before consumer catalogs drop keys they no longer need; executed
+pre-push, it rides the same release CT's remainder gates on. Then: npm-pin the
 package; `build-config.json` with the class-path `environment_config` +
 `platforms["AndroidMobile"]`; migrate CI `--build-env CONFIG_TYPE=default` →
-`--environment-preset`; catalog entry drops `execute_methods` + `package` + `grant_permissions`
-(keyless per the deletion above); generate the dispatch-wrapper
+`--environment-preset`; catalog entry drops all four dead keys
+(keyless per the deletion above); ci.yml grows a `resolve-version` job (release-devkit's
+`app-build-version`, fetch-depth 0 for the tag ledger) feeding the hosted workflow's `version`
+input; generate the dispatch-wrapper
 workflow; delete `Assets/Editor/BuildScript.cs`; `compile-unity` local build; APK smoke
 (`aapt` versionName/Code vs the stamp); the open Phase 1 acceptance probe
 (hand-vandalize an applied global, build, expect the loud "run Apply" preprocessor
@@ -1066,7 +1089,7 @@ SHA to operator.
 stale `room:` shape). **`ConfigMode` + `ResolveEffective` survive — no deletion** (owner
 reversal). **Delete `UnityEnvInspector.cs`** (subsumed — F34; stub fallback on record).
 Both platforms with pipeline assets; `--build-env` migration; catalog goes keyless directly
-(`execute_methods` + `package` deleted outright — MIS never carries the collapsed map); dispatch workflow; define renames in app code (`OUTERNET_*`); delete
+(all four dead keys dropped outright — MIS never carries the collapsed map); dispatch workflow; define renames in app code (`OUTERNET_*`); delete
 `Assets/Settings/Build Profiles/Magic Leap 2.asset` (F19); delete the
 `Build > Configure` menu items and `BuildScript.cs`'s configure functions; **rewire
 `CreateAssetBundles.cs` + `AssetBundleManagerWindow.cs` to the package's apply + verify

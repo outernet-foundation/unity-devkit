@@ -1,6 +1,6 @@
 # unity-devkit
 
-Unity build, license, and CI tooling. Projects are declared in a root `unity-devkit.json` catalog: each entry maps a stable project name to its path plus optional build intent (`builds`, `execute_methods`, `tag_prefix`). Every command resolves projects through the catalog — absence from the catalog is the exclusion mechanism — and `ProjectSettings/ProjectVersion.txt` inside each project remains the editor-version truth. Paired with the reusable [`unity-build.yml`](https://github.com/outernet-foundation/unity-devkit/blob/main/.github/workflows/unity-build.yml) GitHub Actions workflow hosted here — consumers call it cross-repo pinned to a pushed SHA with `secrets: inherit`.
+Unity build, license, and CI tooling. Projects are declared in a root `unity-devkit.json` catalog: each entry maps a stable project name to its path plus optional build intent (`builds`). Every command resolves projects through the catalog — absence from the catalog is the exclusion mechanism — and `ProjectSettings/ProjectVersion.txt` inside each project remains the editor-version truth. Paired with the reusable [`unity-build.yml`](https://github.com/outernet-foundation/unity-devkit/blob/main/.github/workflows/unity-build.yml) GitHub Actions workflow hosted here — consumers call it cross-repo pinned to a pushed SHA with `secrets: inherit`.
 
 ## Setup
 
@@ -16,7 +16,7 @@ Run from a repo root with a `unity-devkit.json` catalog declaring its Unity proj
 
 | `uv run <name>` | What it does |
 |---|---|
-| `compile-unity --project <name> --build <target>` | Local Unity build (APK or platform binary) suitable for `adb install`; `--stamp-version` stamps the version into `ProjectSettings.asset`; `--development`, `--environment-preset <name>`, and repeatable `--environment-field path=value` carry environment intent to the playerbuild entry. |
+| `compile-unity --project <name> --build <target>` | Local Unity build (APK or platform binary) suitable for `adb install`; `--version <string>` stamps the version into `ProjectSettings.asset` (caller-supplied — unity-devkit derives nothing); `--development`, `--environment-preset <name>`, and repeatable `--environment-field path=value` carry environment intent to the playerbuild entry. |
 | `check-unity --project <name>` | Compile gate — batchmode open+quit that fails on compile errors; for repos that own editor code but build no players. |
 | `install --project <name>` | Download the latest CI artifact and `adb install` (or launch, for `Linux`); with `--build`, compile locally first. |
 | `lock-unity` | Lock Unity package versions. |
@@ -25,7 +25,7 @@ Run from a repo root with a `unity-devkit.json` catalog declaring its Unity proj
 | `unity-license-tag` | Print the license cache tag. |
 | `unity-matrix` | Emit the CI build matrix (CI-only; two `key=value` lines for `$GITHUB_OUTPUT`). |
 | `unity-dispatch --project <name> --output <file> --build-workflow <owner/repo/.github/workflows/unity-build.yml@sha>` | Generate the consumer's `workflow_dispatch` build workflow from the live environment class (preset choice, development toggle, one input per simple-typed field); `--check` is the drift gate for consumer CI. |
-| `build-unity` | CI build with library-cache restore/save and version stamping (CI-only). |
+| `build-unity` | CI build with library-cache restore/save; stamps the caller-supplied `--version` when given (CI-only). |
 
 Every command accepts `--help`.
 
@@ -38,7 +38,7 @@ Install from PyPI:
 dependencies = ["unity-devkit>=0.1.0"]
 ```
 
-Then `uv run compile-unity`, `uv run install`, etc. work from that repo against its own Unity projects — declare them in a root `unity-devkit.json` catalog (entries need `builds` + `execute_methods` where build intent is needed). To test an unreleased change, pin the repo at a git ref in a scratch branch instead (`unity-devkit = { git = "…", rev = "<sha>" }` under `[tool.uv.sources]`) and drop the pin when the release lands.
+Then `uv run compile-unity`, `uv run install`, etc. work from that repo against its own Unity projects — declare them in a root `unity-devkit.json` catalog (entries need `builds` where build intent is needed). To test an unreleased change, pin the repo at a git ref in a scratch branch instead (`unity-devkit = { git = "…", rev = "<sha>" }` under `[tool.uv.sources]`) and drop the pin when the release lands.
 
 ## Development
 
