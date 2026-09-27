@@ -24,7 +24,7 @@ Run from a repo root with a `unity-devkit.json` catalog declaring its Unity proj
 | `activate-unity-license` | Activate the Unity Editor license (locally or with `--oras-push`). |
 | `unity-license-tag` | Print the license cache tag. |
 | `unity-matrix` | Emit the CI build matrix (CI-only; two `key=value` lines for `$GITHUB_OUTPUT`). |
-| `unity-dispatch --project <name> --output <file>` | Generate the consumer's `workflow_dispatch` build workflow from the live environment class (preset choice, development toggle, one input per simple-typed field); `--check` is the drift gate for consumer CI. |
+| `unity-dispatch --project <name> --output <file> --build-workflow <owner/repo/.github/workflows/unity-build.yml@sha>` | Generate the consumer's `workflow_dispatch` build workflow from the live environment class (preset choice, development toggle, one input per simple-typed field); `--check` is the drift gate for consumer CI. |
 | `build-unity` | CI build with library-cache restore/save and version stamping (CI-only). |
 
 Every command accepts `--help`.

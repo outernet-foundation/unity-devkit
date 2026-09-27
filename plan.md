@@ -110,12 +110,17 @@ Phase 5 executed in full: the Python half plus the release preparation. Landed:
   per simple-typed field — bool → checkbox, non-flags enum → choice (empty option first), flags enum →
   comma-separated text, string/number → text; the mode field dedupes into the preset choice; field input
   ids are dot→dashed and referenced with bracket notation (`inputs['localConfig-apiUrl']` — dotted ids
-  would parse as property access minus). Loud past the 25-input cap and on unknown field types.
+  would parse as property access minus). The build job calls the hosted workflow through the required
+  `--build-workflow` pin (the consumer's cross-repo `owner/repo/.github/workflows/unity-build.yml@sha`,
+  CT's shape at its ci.yml:82 — the first cut wrongly emitted a local `./.github/workflows/` path,
+  caught at handoff against CT's existing pin and fixed before any flip). Loud past the 25-input cap
+  and on unknown field types.
   `--check` regenerates and diffs — the F20 drift gate for consumer CI. The transport forwards only
   non-empty inputs (per-field `inputs['id'] != '' && format('path={0}', …) || ''` lines); boolean fields
   transport only when checked (checkbox = opt-in override; forcing false goes through the CLI door).
-- **Tests** (43, up from 27): generator render assertions (dedup, type mapping, bracket refs, transport
-  lines, cap, unknown type, determinism, YAML validity via pyyaml — added to the root dev group,
+- **Tests** (44, up from 27): generator render assertions (dedup, type mapping, bracket refs, transport
+  lines, cap, unknown type, determinism, pinned `--build-workflow` uses/header, YAML validity via
+  pyyaml — added to the root dev group,
   test-only), extraction, field parse, child-env contract, and the 4-tuple resolve. The fixture dump
   JSON is committed at `tests/fixtures/environment-dump.json` — captured live this session from the real
   door against `FixtureEnv` (6000.0.66f1), not hand-written.
@@ -125,7 +130,7 @@ Proven live in this sandbox, not just by tests: the dump door through `check-uni
 (generated workflow eyeballed: choice/checkbox/number/flags rows, dedup, `${{ }}` expressions intact —
 an f-string collapsing `{{`→`{` was caught and fixed by rendering transport lines through
 concatenation); `--check` green on the same file, red on a one-line drift. Gates: ruff, basedpyright,
-pytest 43, `check-unity` compile + env self-test green, CSharpier clean (no C# deltas — Python-only
+pytest 44, `check-unity` compile + env self-test green, CSharpier clean (no C# deltas — Python-only
 phase). Docs: AGENTS.md gained the `unity-dispatch`/`build-unity` rows and the environment-transport
 constraint; README command catalog updated.
 
