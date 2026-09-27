@@ -81,6 +81,94 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 14 close — the fork stands: Phase 7's E2E vehicle brought from parse-dead to one step from green)
+
+Branch topology assembled (owner rulings on record: MIS's 5-commit dev stack moved to
+`ci-support-redux`, dev reset to origin/dev, the dirty `.env.airgapped` edit discarded;
+fork work merges to fork `main` immediately — everything rides the default branch; and
+per-repo consolidation branches may mix concerns — placeframe's `ci-support-redux` carries
+its 17-commit dev stack plus the F16 rename). GitHub mechanics learned: "Sync fork" updates
+only branches the fork already has — new branches arrive by push alone; sandbox SSH
+remotes fail (publickey), so cross-repo reads go over HTTPS (a fetched `upstream` remote
+in the fork clone delivered `ci-support-redux` without a push). Fork main = `c07a0c1`
+(merge of the stack onto the owner's dev-at-fork-time merge).
+
+placeframe prerequisite executed: three MagicLeap runtime files renamed `#if MAGIC_LEAP` →
+`#if OUTERNET_MAGIC_LEAP` (table spelling, `Platform.cs`) **plus the harness
+ProjectSettings define** — correcting the session's own earlier "it stays": left as
+`MAGIC_LEAP`, placeframe CI compiles the gated code out (green but hollow). Cherry-picked
+onto dev as `7ec5e2f9` (18 ahead, owner-pushed); the pre-created worktree branch was
+dropped (prepo drop's unmerged guard met with `git branch -D` — sanctioned, the change is
+preserved on the consolidation branch). Consequence accepted: no npm `placeframe-magicleap`
+until the branch lands; the MIS fork bridges via git-pin to `7ec5e2f9`. placeframe's origin
+is `plerion.git` (repo renamed; old URLs redirect).
+
+The fork CI cascade — each push surfaced one defect, all fixed same-session:
+
+- `5160098` + `ee1f27c`: ci.yml gained the `main` push trigger (fork operating mode —
+  **revert ledger**), dropped the dead `build-env:` input and its now-inert `config_type`
+  dispatch input (the preset transport dead-ends until the UnityEnv machinery exists;
+  ambient no-op is the defined interim; the panel honestly offers nothing until the
+  generated dispatch workflow lands); uv relock 0.1.14 → 0.1.16 (renamed verbs).
+- **The 0s failure was misdiagnosed as missing secrets** — the owner's org-level
+  `UNITY_*` secrets were fine (note: org secrets need the repo in each secret's access
+  selection). Real cause: a malformed workflow pin — `ba7a417` had appended junk hex to
+  the true SHA (72 chars; "reference should be a valid branch, tag, or commit"). Fixed
+  `9ffabc7`. Blast-radius sweep found the same corruption in CT ×3 sites (different junk
+  suffix, a `d7bb6ba` fragment): ci.yml:101 + the generated `build-dispatch.yml`'s header
+  command and `uses:` — the dispatch generator had baked the malformed pin in verbatim and
+  `--check` validated garbage against garbage. CT fixed (`3a4ea42`: pin edit + regeneration
+  with the corrected `--build-workflow`, drift gate green). All other consumers verified
+  clean 40-char pins.
+- `dc2ce70`: fork catalog went keyless (`package`, `execute_methods` dropped) — surfaced
+  as the matrix step's pydantic forbid-extra failure, reproduced locally. The Phase 7 item
+  executed early; `BuildScript.cs` is now dead from CI's perspective (devkit 0.1.16's
+  build door hardcodes `Outernet.PlayerBuild.Entry`).
+- `f6a4e8c`: `workloads/images.yml` tags + build-cache re-pointed at
+  `make-it-sing-fork` — the fork's GITHUB_TOKEN cannot push the prime's ghcr packages
+  (rightly). Mixed-case `GITHUB_REPOSITORY` blocks env interpolation (ghcr rejects
+  uppercase refs) — **revert ledger** entry; durable fix is docker-devkit exporting a
+  lowercased repo variable (upstream item, open).
+- **`unity-container-prep` was structurally broken cross-repo**: a `./`-referenced local
+  action inside a cross-repo-called workflow resolves against the *caller's* checkout
+  (`Can't find 'action.yml'` on the fork) — while local *workflow* refs
+  (`prepare-unity.yml`) resolve from the host repo and work cross-repo (proven green on
+  the fork). The hosted family had never executed cross-repo: every consumer repin was
+  unpushed, and devkit's own runs always had the action in-checkout. Devkit `065598f`
+  inlined the composite's three steps into `build-unity.yml` + `compile-check-unity.yml`
+  and deleted the action; `69e621f` records the constraint in AGENTS. **Repin sweep to
+  `69e621f52fbdc7c988e69b08daaf4134f6cc68ef`**: fork `c42ea85`; CT `81b1401` (dispatch
+  regenerated again, `--check` green); Nessle `e0c3d69`, ObserveThing `ce60dff`,
+  StatefulUnity `fd09785`, lbe-toolkit `60d28d1` (one commit each, punted stacks);
+  placeframe `be38a73e` on its `ci-support-redux`.
+- Confirmed live on the fork: self-hosted unity runners, org secrets, license activation
+  (green in 45s — the ORAS path works; the mixed-case `CACHE_REGISTRY` watchpoint did not
+  bite). The revert ledger was created in §Phase 7 (`78b20b5`) and extended (`1be4ee0`),
+  including the release-trigger rule: a ci.yml-completion `workflow_run` trigger filtered
+  to the main ref is portable to prime and stays; a fork-only shape joins the ledger.
+
+Push states at close: devkit pushed through `69e621f` (pins live on origin); fork pushed
+through `c42ea85`; run 36360018379 in flight with `check`/`matrix`/`mirror` green — livekit
+and the unity builds pending with outcomes analysis-certain: livekit green (namespace
+fix), both unity build jobs red at the missing `Outernet.PlayerBuild.Entry` (the manifest
+does not pin `org.outernet.playerbuild`). CT 12 ahead, the four compile-check consumers
+and placeframe's branch tip on their punted stacks carrying the repins. Errors on record
+beyond the misdiagnosis: SSH fetch failures throughout (last-known refs used — safe under
+the punt); release.yml's fetch-by-SHA race reds every direct-to-main push until the
+`workflow_run` retrigger lands (known, queued, not a defect of this session's work).
+
+Next session: (1) read run 36360018379's final state to confirm the predicted outcomes.
+(2) **The AndroidMobile slice**: manifest npm-pin `org.outernet.playerbuild@0.1.1`
+(npmjs scoped registry, CT's shape) + `build-config.json` at `MakeItSing-Unity/` root
+(minimal platform entries, CT's empty-overrides shape) + `lock-unity` regen — the first
+real Entry-driven build attempt; further reds (table facts vs MIS globals, scenes, XR
+sweep) are each their own fix. (3) The MagicLeap2 slice and the flip body proper:
+placeframe pins → `7ec5e2f9`, app-code define renames (`OUTERNET_*`), UnityEnv members +
+preset re-saves, inspector deletion, dispatch workflow, Build Profile asset + Configure
+menu deletions, the four bake call-site rewires (F15/F31). (4) release.yml `workflow_run`
+retrigger + the resolve-version bridge (`app-build-version`, uvx pins → 0.1.17). Process
+protocol unchanged: propose → owner instruction → edit.
+
 ## Status (2026-09-27, session 13 close — the dual-registry release landed; CT Phase 6 remainder executed)
 
 The pending releases landed, then CT's gated remainder executed against them. En-route facts,
@@ -166,6 +254,9 @@ surface — the Phase 7 migration is the first work item, not a surprise.
 
 Next session: **Phase 7 on the fork** per the amended phase below; the devkit-side drift-gate
 hosted-workflow growth is queued behind it (or rides the next devkit release).
+
+Next-session pointer superseded by the session-14 close above (Phase 7 on the fork is under
+way — the vehicle is standing; the pointer's detail lives there); retained for the record.
 
 ## Status (2026-09-27, session 12 close — unity.py consolidation + build-core inlines)
 
