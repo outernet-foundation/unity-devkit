@@ -21,7 +21,7 @@ namespace Outernet
             string environment = Environment.GetEnvironmentVariable("ENVIRONMENT")!;
             Dictionary<string, string> fields = EnvironmentBuild.ReadEnvironmentFields();
             EnvironmentBuild.DumpEnvironment();
-            EnvironmentBuild.ApplyEnvironment(classPath, environment, fields);
+            PlayerBuild.ApplyEnvironment(classPath, environment, fields);
             FixtureEnv live = AssetDatabase.LoadAssetAtPath<FixtureEnv>(FixtureEnv.TargetPath);
             if (live == null)
             {

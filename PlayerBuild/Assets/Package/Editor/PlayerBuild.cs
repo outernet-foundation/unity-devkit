@@ -193,7 +193,7 @@ namespace Outernet
         )
         {
             ApplyPlatformFacts(spec, development);
-            EnvironmentBuild.ApplyEnvironment(config.EnvironmentConfig, environment, environmentFields);
+            ApplyEnvironment(config.EnvironmentConfig, environment, environmentFields);
             ApplyXr(spec);
             PlatformOverrides overrides = PlatformFor(config, spec.Name);
             ApplyPipeline(overrides.RenderPipeline);
@@ -222,6 +222,117 @@ namespace Outernet
             Debug.Log(
                 $"[playerbuild] platform facts applied: {spec.Name} ({(development ? "development" : "release")})"
             );
+        }
+
+        public static void ApplyEnvironment(
+            string classPath,
+            string environment,
+            IReadOnlyDictionary<string, string> fields
+        )
+        {
+            if (environment.Length == 0 && fields.Count == 0)
+            {
+                Debug.Log("[playerbuild] no environment selected — leaving workspace untouched");
+                return;
+            }
+
+            EnvironmentShape shape = EnvironmentBuild.ResolveEnvironment(classPath);
+            bool applyingPreset = environment.Length > 0;
+            if (applyingPreset)
+            {
+                ApplyEnvironmentPreset(shape, environment);
+            }
+
+            UnityEngine.Object targetAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(shape.TargetPath);
+            if (targetAsset == null)
+            {
+                throw new BuildFailedException($"No environment asset at '{shape.TargetPath}' — apply a preset first");
+            }
+
+            var serialized = new SerializedObject(targetAsset);
+            SerializedProperty modeProperty = applyingPreset ? serialized.FindProperty(shape.ModeFieldName) : null;
+            if (applyingPreset && modeProperty == null)
+            {
+                throw new BuildFailedException(
+                    $"The asset at '{shape.TargetPath}' has no '{shape.ModeFieldName}' field — the preset is stale against the class, re-save it"
+                );
+            }
+
+            if (modeProperty != null)
+            {
+                modeProperty.intValue = (int)Enum.Parse(shape.ModeEnumType, environment, true);
+            }
+
+            foreach (KeyValuePair<string, string> entry in fields)
+            {
+                EnvironmentFieldLeaf leaf = shape.Fields.FirstOrDefault(candidate => candidate.Path == entry.Key);
+                if (leaf == null)
+                {
+                    throw new BuildFailedException(
+                        $"Unknown environment field '{entry.Key}' (declared: {string.Join(", ", shape.Fields.Select(candidate => candidate.Path))})"
+                    );
+                }
+
+                SerializedProperty property = serialized.FindProperty(entry.Key);
+                if (property == null)
+                {
+                    throw new BuildFailedException(
+                        $"Environment field '{entry.Key}' is absent from '{shape.TargetPath}' — the asset is stale against the class, re-save it"
+                    );
+                }
+
+                object parsed = EnvironmentBuild.ParseEnvironmentValue(leaf, entry.Value);
+                if (leaf.FieldType.IsEnum)
+                {
+                    property.intValue = (int)(long)parsed;
+                }
+                else
+                {
+                    property.boxedValue = parsed;
+                }
+            }
+
+            serialized.ApplyModifiedProperties();
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                $"[playerbuild] environment '{environment}' applied to {shape.TargetPath} ({fields.Count} override(s))"
+            );
+        }
+
+        private static void ApplyEnvironmentPreset(EnvironmentShape shape, string environment)
+        {
+            if (!shape.Presets.TryGetValue(environment, out string sourcePath))
+            {
+                throw new BuildFailedException(
+                    $"Unknown environment '{environment}' (declared: {string.Join(", ", shape.Presets.Keys)})"
+                );
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(sourcePath) == null)
+            {
+                throw new BuildFailedException($"Preset asset not found at '{sourcePath}'");
+            }
+
+            string[] segments = Path.GetDirectoryName(shape.TargetPath)!.Replace('\\', '/').Split('/');
+            string currentFolder = segments[0];
+            for (int index = 1; index < segments.Length; index++)
+            {
+                string nextFolder = $"{currentFolder}/{segments[index]}";
+                if (!AssetDatabase.IsValidFolder(nextFolder))
+                {
+                    AssetDatabase.CreateFolder(currentFolder, segments[index]);
+                }
+
+                currentFolder = nextFolder;
+            }
+
+            AssetDatabase.DeleteAsset(shape.TargetPath);
+            if (!AssetDatabase.CopyAsset(sourcePath, shape.TargetPath))
+            {
+                throw new BuildFailedException($"Failed to copy environment asset {sourcePath} -> {shape.TargetPath}");
+            }
+
+            Debug.Log($"[playerbuild] preset '{environment}' copied {sourcePath} -> {shape.TargetPath}");
         }
 
         public static void ApplyXr(PlatformSpec spec)
