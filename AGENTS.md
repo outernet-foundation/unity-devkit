@@ -53,6 +53,6 @@ The `PlayerBuild/` harness is this repo's one cataloged Unity project: a minimal
 
 ## See also
 
-- `plan.md` — the org.outernet.playerbuild initiative record (phases, verified facts F2–F31, the convergence method), moved here from the retired unitybuild repo; the remaining phases (V, CT, MIS, C) are active work.
+- `plan.md` — the org.outernet.playerbuild initiative record (phases, verified facts F2–F36, the convergence method), moved here from the retired unitybuild repo; the remaining phases (3–8) are active work.
 - [`bashrun`](https://github.com/outernet-foundation/bashrun) — the shell-exec helpers this package uses everywhere (`bash`, `bash_output`, `bash_check`, `bash_handoff`).
 - `README.md` — human-facing setup, command catalog, and consumer install snippet.

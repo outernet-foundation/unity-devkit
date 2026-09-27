@@ -38,6 +38,12 @@ door (GitHub dispatch, configure window, CLI); `ConfigMode`/`ResolveEffective` s
 (dependency direction); `UnityEnvInspector` is deleted and subsumed (not stubbed), with
 Override as a first-class *derived* concept (the map's complement).
 
+**The restructure (2026-09-27, session 3)**: the amendment's implementation and the
+release carrying it were one phase on paper and two sessions of work — split, and the
+phases renumbered 1–8 (old I→1, F→2, V→5, CT→6, MIS→7, C→8; the new 3 and 4 slot between
+2 and 5). Phase 3: the env core in package C#. Phase 4: the mode-aware configure window.
+Phase 5: the Python half plus the release.
+
 ## Owner C# style rules (2026-09-26 review loop; binding for this package, all phases)
 
 Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platform.cs`.
@@ -75,11 +81,32 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 3 close — plan restructured; no code)
+
+Plan surgery only; no code changed in any repo. The environment amendment split out of the
+release phase — env core (3), configure window (4), Python + release (5) — and all phases
+renumbered 1–8 (mapping in the restructure paragraph above). Two rulings recorded: the
+harness reflection fixture is in (F6/F8 amended to its spirit — the package depends on no
+harness state; a reflection target is test tooling, not config), and npm-only intermediate
+releases after Phase 3 are acceptable (unset environment is a no-op; consumers npm-pin at
+flips; the npm CI channel has never succeeded end-to-end and an intermediate proves it
+cheaply). The PyPI path-diff counts prose, so pushing the pending plan-only commits may
+burn a codeless patch number — cosmetic, accepted (same tier as the 0.1.12–0.1.14 burns).
+
+Next session executes **Phase 3 only, in full, nothing else**: the env core in package C#
+inside `PlayerBuild/` — dump executeMethod, env-member resolution, preset copy + field
+apply, verification read-back, entry env-var transport, the harness reflection fixture.
+No window (Phase 4), no Python, no release (Phase 5). Propose → owner instruction → edit,
+per the process protocol. This session's commit joins the pending plan commits on local
+main for operator handoff.
+
 ## Status (2026-09-27, session 2 close — environment pivot locked; design only, no code)
 
 Session 2 was design-only: no code changed in any repo; the registries and pushes below
 are untouched. This document now carries the environment amendment (§Environment model,
 the pivot paragraph above, phases V/CT/MIS, facts F32–F36, the superseded list).
+
+Superseded by the session-3 list above; retained for the record.
 
 Next session, in order (amends the session-close list below; Phase V remains verified
 absent in the fold release — no typed flags, no child-env control, no dispatch generator,
@@ -329,7 +356,7 @@ record: stub opening the window, if the click-the-asset workflow must be preserv
 
 **Dump verb** — package-generic executeMethod driven by the class pointer:
 `MonoScript.GetClass()` → reflect shape, enum, `Presets`, `TargetPath` → JSON on stdout.
-Consumer: the dispatch generator (Phase V). Drift-gated (F20 pattern): a class edit
+Consumer: the dispatch generator (Phase 5). Drift-gated (F20 pattern): a class edit
 without dump regen is a loud CI failure — the accepted regen tax.
 
 **Dispatch panel rules** (generated static YAML; F20/F32 caps):
@@ -347,7 +374,7 @@ without dump regen is a loud CI failure — the accepted regen tax.
 - input values are plaintext in run UI/logs/payload (F32) — accepted: they are
   configuration, not credentials. MIS budget: 19 fields + 3 controls = 22 of 25.
 
-**CLI (Phase V)**: `--environment <preset>` + repeatable `--environment-field
+**CLI (Phase 5)**: `--environment <preset>` + repeatable `--environment-field
 path=value`; the door→entry transport carries the override set as a JSON payload
 (`ENVIRONMENT_FIELDS` = `{"path": "value", ...}` — comma-safe for flags values); the
 preset rides `ENVIRONMENT`. Uniform enum application rule, flags included: names parsed
@@ -355,7 +382,7 @@ via `Enum.Parse` against the reflected member type → `SerializedProperty.intVa
 bool/string per property type.
 
 **One substrate forever**: `.asset` + `SerializedObject`. CT converts to the MIS shape at
-its flip (Phase CT); the package never grows a JSON env writer.
+its flip (Phase 6); the package never grows a JSON env writer.
 
 ### build-config.json (target schema)
 
@@ -421,7 +448,10 @@ none of it changes anything we depend on while profiles stay irrelevant.
 - **F5 shared outer machinery** (carried): devkit workflow pinned by SHA, root catalogs,
   env var transport.
 - **F6/F8 postmortems** (carried, binding): no applier/phase classes, no unit tests ever,
-  harness is not a consumer, minimal manifest, no XR bootstrap-and-create.
+  harness is not a consumer, minimal manifest, no XR bootstrap-and-create. Amended
+  (session 3): the harness may carry a reflection fixture — a labeled dummy env class
+  the reflection code is pointed at; the sterility that matters is the package depending
+  on no harness state, and a reflection target is test tooling, not consumer config.
 - **F7 editor facts** (carried): `XRGeneralSettingsForBuildTarget` null without the
   committed asset (fail loudly); OpenXR runtime assembly hosts the feature APIs;
   batchmode open+quit exits 0 despite compile errors (gate scans for `error CS`).
@@ -517,7 +547,7 @@ none of it changes anything we depend on while profiles stay irrelevant.
   change; permanently shadows the baked default) → baked `Resources` `default-settings`
   TextAsset (SimpleJSON via FofX.Stateful `StateObject.FromJSON`) → hardcoded fallbacks;
   `SettingsState` is `StateValue<T>` properties, not serialized fields; `CONFIG_TYPE`
-  (`default`/`air-gapped`) arrives via ci.yml's `build-env`. Phase CT replaces this whole
+  (`default`/`air-gapped`) arrives via ci.yml's `build-env`. Phase 6 replaces this whole
   substrate with the MIS shape.
 - **F36 UnityEnv secrets census** (2026-09-27, repo-verified): zero true secrets —
   `supabaseApiKey` is a `sb_publishable_` key (public-by-design, RLS-gated),
@@ -556,28 +586,57 @@ fed by applied globals + the preprocessor guard).
 
 ## Execution phases
 
-**Phase I — implement rewrite 3.** Doc-first (this document + AGENTS.md, done). Then the
+**Phase 1 — implement rewrite 3** (complete; old Phase I). Doc-first (this document +
+AGENTS.md, done). Then the
 remaining steps in Status, in order. Acceptance: `check-unity` green, CSharpier clean,
 `publish-stable --dry-run` intact, preprocessor provably firing (a hand-vandalized global
 fails a local build loudly).
 
-**Phase F — fold into unity-devkit** (operator-gated; mechanical, unchanged from
-rewrite 2): move `Assets/Package/` + harness + CI into `/workspace/unity-devkit`; one
+**Phase 2 — fold into unity-devkit** (complete; old Phase F; operator-gated, mechanical):
+move `Assets/Package/` + harness + CI into `/workspace/unity-devkit`; one
 `release-devkit.json` (PyPI `unity-devkit` + npm `org.outernet.playerbuild`); trusted
 publisher bound to devkit's `release.yml`; this repo retires. Sequenced before the
 `0.1.12` release (OQ5).
 
-**Phase V — devkit release, next patch after 0.1.15** (amended): carries the environment
-amendment end-to-end. Package C# (npm `org.outernet.playerbuild`): the dump
-executeMethod; env-member resolution (`Presets`/`TargetPath`); preset copy + field apply
-with loud reflection validation; verification read-back of env values; mode-aware
-configure window. Python (PyPI `unity-devkit`): typed
-`--environment`/`--development`/`--environment-field` flags with the JSON
-`ENVIRONMENT_FIELDS` transport; child-env control; dispatch generator verb consuming the
-dump output (panel rules §Environment model); `--build-env` deletion end-to-end
-(`build_unity.py` + hosted `unity-build.yml`'s `build-env` input → preset/field inputs).
+**Phase 3 — env core, package C#** (split from the old Phase V; no window, no Python, no
+release — each is another phase). In `PlayerBuild/Assets/Package/`: the dump
+executeMethod (class-pointer driven, JSON on stdout); env-member resolution
+(`Presets`/`TargetPath`; name + shape matched; loud on absent/mismatched/ambiguous);
+preset copy (whole-asset copy of the map's asset into `TargetPath`, mode travelling with
+the copy) + per-field apply (`SerializedObject` path-writes; `Enum.Parse` against the
+reflected member type, flags via comma-separated names; bool/string per property type;
+unknown path or bad enum value fails loudly); verification read-back of env values (the
+shared check grows the env rows); entry-side env-var transport — the C# side defines and
+reads the `ENVIRONMENT`/`ENVIRONMENT_FIELDS` contract (`{"path": "value", ...}`); unset
+environment = ambient no-op. The harness grows the reflection fixture (session-3 ruling):
+a labeled dummy env class + one committed preset asset on a test-obvious path,
+reflection-driven only — the package never references it by name; the harness still
+carries no `build-config.json`. `check-unity --execute-method` runs dump → apply →
+read-back against it in CI; its dump JSON becomes Phase 5's generator test fixture.
+Gates: `check-unity`, CSharpier. An operator push after this phase may cut an npm-only
+intermediate release — accepted (session-3 ruling); it de-risks the npm CI channel.
 
-**Phase CT — capture-tool flip** (amended: opens with the MIS-shape conversion): write
+**Phase 4 — configure window, environment pane** (split from the old Phase V).
+`ConfigureWindow.cs` grows the mode-aware pane per §Environment model's derived window
+rules: mode selector typed as the map's key enum; preset selection = set mode + copy (the
+one destructive write); Override selection = set mode only; preset mode → fields
+read-only with the next-preset-overwrites banner; Override mode → fields editable with
+the hand-edited banner — write-lifecycle claims only (F34 truthfulness). Calls the same
+application functions every door calls; no new facts, no Python. Gates: `check-unity`,
+CSharpier, hand-smoke against the harness fixture.
+
+**Phase 5 — devkit release** (the old Phase V's Python half; version = next patch after
+0.1.15 plus any intermediates the push cadence cut). Python (PyPI `unity-devkit`): typed
+`--environment`/`--development`/`--environment-field` flags with the JSON
+`ENVIRONMENT_FIELDS` transport and child-env control (implementing the contract Phase 3
+defined); the dispatch generator verb consuming the dump output (panel rules in
+§Environment model; tested against the Phase 3 fixture's dump JSON); `--build-env`
+deletion end-to-end (`build_unity.py` + hosted `unity-build.yml`'s `build-env` input →
+preset/field inputs). Preflight battery, `check-unity`, CSharpier gate it. One devkit
+release carries both registries.
+
+**Phase 6 — capture-tool flip** (old Phase CT; amended: opens with the MIS-shape
+conversion): write
 `CaptureEnv : ScriptableObject` (fields `apiUrl`/`username`/`password`; preset enum;
 `Presets` map; `TargetPath` = `Assets/_LocalWorkspace/Resources/CaptureEnv.asset`);
 committed preset asset carrying today's `airgapped-settings.json` values; rewire
@@ -588,9 +647,12 @@ package; `build-config.json` with the class-path `environment_config` +
 `platforms["AndroidMobile"]`; migrate CI `--build-env CONFIG_TYPE=default` →
 `--environment`; catalog entry → the single executeMethod; generate the dispatch-wrapper
 workflow; delete `Assets/Editor/BuildScript.cs`; `compile-unity` local build; APK smoke
-(`aapt` versionName/Code vs the stamp); hand branch + SHA to operator.
+(`aapt` versionName/Code vs the stamp); the open Phase 1 acceptance probe
+(hand-vandalize an applied global, build, expect the loud "run Apply" preprocessor
+failure; the harness cannot host it — no `build-config.json` by design); hand branch +
+SHA to operator.
 
-**Phase MIS — Make-it-Sing flip** (amended): `UnityEnv` gains two members —
+**Phase 7 — Make-it-Sing flip** (old Phase MIS; amended): `UnityEnv` gains two members —
 `public static readonly Dictionary<ConfigMode, string> Presets` (keys = door spellings;
 `airgapped`, not `air-gapped`) and `public const string TargetPath =
 "Assets/_LocalWorkspace/Resources/UnityEnv.asset"`; re-save both canonical presets (F21
@@ -605,7 +667,8 @@ dispatch workflow; define renames in app code (`OUTERNET_*`); delete
 npm migration; convergence method; Elliot smoke: Apply → native Build on both platforms,
 bake bundles on both platforms (through the rewired entry points), workspace round-trip.
 
-**Phase C — cleanup**: fold load-bearing plan content into AGENTS.md; delete this plan
+**Phase 8 — cleanup** (old Phase C): fold load-bearing plan content into AGENTS.md;
+delete this plan
 (also in the folded home); delete placeframe's dead `BuildUtility`.
 
 **Excluded**: the 6000.2 editor upgrade (own initiative; changes nothing here — see
@@ -626,7 +689,7 @@ Then one `compile-unity` build; compare applied-config log lines and `BuildRepor
 No pushes from the sandbox — commit locally, hand branch + SHA to the operator. Prose and
 code in separate commits; subject under 72 chars; no trailers; no bypass flags. CSharpier
 120 cols; always-brace bodies; comments rare, self-contained. Never invoke
-`/opt/unity/.../Unity` directly — always the devkit verbs (ADB guard); until the Phase V
+`/opt/unity/.../Unity` directly — always the devkit verbs (ADB guard); until the Phase 5
 release lands, the devkit-checkout venv vehicle (`/workspace/unity-devkit/.venv/bin/<verb>`, cwd
 at the target repo root). Never `gh run watch`. Keep `.gitignore` strict (`Library/`,
 `_LocalWorkspace/`).
