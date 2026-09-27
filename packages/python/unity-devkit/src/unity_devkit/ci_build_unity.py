@@ -12,8 +12,7 @@ from ci_devkit.ci_step import ci_step
 from .license_restore import restore_license
 from ci_devkit.setup import configure_git, install_dotnet
 from ci_devkit.setup_oras import install_oras
-from .player_build import build_player
-from .unity import parse_environment_fields, resolve_unity_project
+from .unity import build_player, parse_environment_fields, resolve_unity_project
 
 
 class Settings(BaseSettings):

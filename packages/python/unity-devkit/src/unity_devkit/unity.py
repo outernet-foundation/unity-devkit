@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -32,7 +33,6 @@ PLAYERBUILD_ENTRY = "Outernet.PlayerBuild.Entry"
 # signatures and fails regardless of the exit code. Extend the tuple as new silent failures
 # are discovered.
 QUIET_FAILURE_SIGNATURES = ("An error occurred while resolving packages:",)
-QUIET_FAILURE_BLOCK_LINE_LIMIT = 20
 
 
 def run_unity_batchmode(
@@ -46,9 +46,21 @@ def run_unity_batchmode(
     env: dict[str, str] | None = None,
 ) -> Path:
     log_path = Path(tempfile.mkdtemp(prefix="unity-devkit-")) / "editor.log"
-    command = (
-        f"{unity_batchmode_command(project_path, nographics=nographics, auto_quit=auto_quit)} {extra_flags}"
-    ).strip()
+    editor = str(find_editor_for_version(read_editor_version(project_path)))
+    # Player builds need a real GfxDevice: Unity 6 compresses Android textures (ASTC/ETC2) on the
+    # GPU, and under -nographics the Null device falls back to a path that produces corrupt textures.
+    # xvfb-run (added below) supplies the display the dropped -nographics would otherwise stand in for.
+    graphics_flag = " -nographics" if nographics else ""
+    quit_flag = " -quit" if auto_quit else ""
+    command = f"{editor} -batchmode{graphics_flag}{quit_flag} -projectPath {project_path.resolve()}"
+    if sys.platform != "win32":
+        if shutil.which("xvfb-run"):
+            command = f"xvfb-run {command}"
+        # Unity runs `adb kill-server` on Android build teardown; strip the
+        # env var so the kill lands on a local daemon, not whatever
+        # ADB_SERVER_SOCKET points at.
+        command = f"env -u ADB_SERVER_SOCKET {command}"
+    command = f"{command} {extra_flags}".strip()
     command = f"{command} -logFile /dev/stdout"
     returncode = 0
     try:
@@ -66,7 +78,7 @@ def run_unity_batchmode(
         if not any(signature in line for signature in signatures):
             continue
         block: list[str] = []
-        for candidate in lines[index : index + QUIET_FAILURE_BLOCK_LINE_LIMIT]:
+        for candidate in lines[index : index + 20]:
             if block and not candidate.strip():
                 break
             block.append(candidate)
@@ -80,24 +92,6 @@ def run_unity_batchmode(
     if returncode != 0:
         print(f"  WARNING: Unity exited {returncode}; no package-manager failure found — full editor log at {log_path}")
     return log_path
-
-
-def unity_batchmode_command(project_path: Path, nographics: bool = True, *, auto_quit: bool = True) -> str:
-    editor = str(find_editor_for_version(read_editor_version(project_path)))
-    # Player builds need a real GfxDevice: Unity 6 compresses Android textures (ASTC/ETC2) on the
-    # GPU, and under -nographics the Null device falls back to a path that produces corrupt textures.
-    # xvfb-run (added below) supplies the display the dropped -nographics would otherwise stand in for.
-    graphics_flag = " -nographics" if nographics else ""
-    quit_flag = " -quit" if auto_quit else ""
-    command = f"{editor} -batchmode{graphics_flag}{quit_flag} -projectPath {project_path.resolve()}"
-    if sys.platform != "win32":
-        if shutil.which("xvfb-run"):
-            command = f"xvfb-run {command}"
-        # Unity runs `adb kill-server` on Android build teardown; strip the
-        # env var so the kill lands on a local daemon, not whatever
-        # ADB_SERVER_SOCKET points at.
-        command = f"env -u ADB_SERVER_SOCKET {command}"
-    return command
 
 
 def read_editor_version(project_path: Path) -> str:
@@ -148,22 +142,6 @@ def resolve_unity_project(project: str) -> CatalogEntry:
     return projects[project]
 
 
-def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str]:
-    project_config = resolve_unity_project(project)
-    valid_builds = project_config.builds or []
-    if not valid_builds:
-        raise SystemExit(
-            f"Project '{project}' declares no builds — add a 'builds' list to its entry in unity-devkit.json"
-        )
-    if build not in valid_builds:
-        raise SystemExit(f"Unknown build '{build}' for project '{project}'. Valid: {', '.join(valid_builds)}")
-
-    if build not in PLATFORM_CONFIGS:
-        raise SystemExit(f"No platform config for build '{build}'. Valid: {', '.join(PLATFORM_CONFIGS)}")
-
-    return project_config, PLATFORM_CONFIGS[build]["build_target"]
-
-
 def prepare_unity_project(project_path: Path) -> None:
     stale_lockfile = project_path / "Temp" / "UnityLockfile"
     if stale_lockfile.exists():
@@ -190,12 +168,81 @@ def parse_environment_fields(entries: Sequence[str]) -> dict[str, str]:
     return fields
 
 
-def playerbuild_environment(
-    platform: str, development: bool, environment_preset: str, fields: dict[str, str]
-) -> dict[str, str]:
-    env = {"PLATFORM": platform, "DEVELOPMENT": "true" if development else "false"}
+def build_player(
+    project: str,
+    build: str,
+    *,
+    version: str = "",
+    run_number: int = 0,
+    development: bool = False,
+    environment_preset: str = "",
+    environment_fields: dict[str, str] | None = None,
+) -> list[Path]:
+    project_config = resolve_unity_project(project)
+    valid_builds = project_config.builds or []
+    if not valid_builds:
+        raise SystemExit(
+            f"Project '{project}' declares no builds — add a 'builds' list to its entry in unity-devkit.json"
+        )
+    if build not in valid_builds:
+        raise SystemExit(f"Unknown build '{build}' for project '{project}'. Valid: {', '.join(valid_builds)}")
+    if build not in PLATFORM_CONFIGS:
+        raise SystemExit(f"No platform config for build '{build}'. Valid: {', '.join(PLATFORM_CONFIGS)}")
+
+    project_path = project_config.path
+    build_target = PLATFORM_CONFIGS[build]["build_target"]
+    prepare_unity_project(project_path)
+
+    if version:
+        settings_path = project_path / "ProjectSettings" / "ProjectSettings.asset"
+        rewritten = settings_path.read_text(encoding="utf-8")
+        for field_name, value in (("AndroidBundleVersionCode", str(run_number)), ("bundleVersion", version)):
+            rewritten = replace_serialized_field(rewritten, field_name, value)
+        settings_path.write_text(rewritten, encoding="utf-8")
+        print(f"Stamped bundleVersion {version} (bundleVersionCode={run_number}) into ProjectSettings")
+
+    build_directory = project_path / "Build"
+    before = snapshot_artifacts(build_directory)
+
+    env: dict[str, str] = {"PLATFORM": build, "DEVELOPMENT": "true" if development else "false"}
     if environment_preset:
         env["ENVIRONMENT"] = environment_preset
-    if fields:
-        env["ENVIRONMENT_FIELDS"] = json.dumps(fields)
-    return env
+    if environment_fields:
+        env["ENVIRONMENT_FIELDS"] = json.dumps(environment_fields)
+    run_unity_batchmode(
+        project_path,
+        f"-buildTarget {build_target} -executeMethod {PLAYERBUILD_ENTRY}",
+        nographics=False,
+        env=env,
+    )
+
+    after = snapshot_artifacts(build_directory)
+    produced = sorted(path for path, modification_time in after.items() if before.get(path) != modification_time)
+    if not produced:
+        raise SystemExit(
+            "Unity exited 0 but no .apk/.exe/.x86_64 under Build/ was produced or updated — "
+            "the incremental build served a stale artifact. Delete the existing "
+            "output under Build/ and the project's Library/Bee/.../build/ tree, then retry."
+        )
+    return produced
+
+
+def replace_serialized_field(text: str, field_name: str, value: str) -> str:
+    pattern = re.compile(rf"^(?P<indent>[ \t]*){field_name}:.*$", re.MULTILINE)
+    rewritten, count = pattern.subn(lambda match: f"{match.group('indent')}{field_name}: {value}", text)
+    if count != 1:
+        raise SystemExit(
+            f"Expected exactly one '{field_name}:' field in ProjectSettings.asset, found {count} — "
+            "the serialized shape changed; refusing to stamp"
+        )
+    return rewritten
+
+
+def snapshot_artifacts(build_directory: Path) -> dict[Path, int]:
+    if not build_directory.is_dir():
+        return {}
+    return {
+        path: path.stat().st_mtime_ns
+        for suffix in (".apk", ".exe", ".x86_64")
+        for path in build_directory.rglob(f"*{suffix}")
+    }

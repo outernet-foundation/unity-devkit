@@ -2,8 +2,7 @@ from typing import Annotated
 
 import typer
 
-from .player_build import build_player
-from .unity import parse_environment_fields
+from .unity import build_player, parse_environment_fields
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 

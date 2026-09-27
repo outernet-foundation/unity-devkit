@@ -10,7 +10,7 @@ from unity_devkit.dispatch_workflow_generator import (
     extract_environment_dump,
     render_dispatch_workflow,
 )
-from unity_devkit.unity import playerbuild_environment, parse_environment_fields
+from unity_devkit.unity import parse_environment_fields
 
 FIXTURE_DUMP = Path(__file__).parent / "fixtures" / "environment-dump.json"
 PINNED_BUILD_WORKFLOW = (
@@ -158,22 +158,3 @@ def test_parse_environment_fields_splits_on_first_equals() -> None:
 def test_parse_environment_fields_rejects_bare_path() -> None:
     with pytest.raises(SystemExit, match="expected path=value"):
         parse_environment_fields(["username"])
-
-
-def test_playerbuild_environment_carries_the_entry_contract() -> None:
-    env = playerbuild_environment(
-        "AndroidMobile", development=True, environment_preset="airgapped", fields={"username": "bot"}
-    )
-
-    assert env == {
-        "PLATFORM": "AndroidMobile",
-        "DEVELOPMENT": "true",
-        "ENVIRONMENT": "airgapped",
-        "ENVIRONMENT_FIELDS": '{"username": "bot"}',
-    }
-
-
-def test_playerbuild_environment_without_preset_is_platform_and_development_only() -> None:
-    env = playerbuild_environment("Linux", development=False, environment_preset="", fields={})
-
-    assert env == {"PLATFORM": "Linux", "DEVELOPMENT": "false"}
