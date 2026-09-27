@@ -2,7 +2,7 @@
   "packages": [
     {
       "name": "unity-devkit",
-      "path": ".",
+      "path": "packages/python/unity-devkit",
       "major_minor": "0.1",
       "registries": {
         "pypi": "unity-devkit"
@@ -10,7 +10,7 @@
     },
     {
       "name": "playerbuild",
-      "path": "PlayerBuild/Assets/Package",
+      "path": "packages/unity/PlayerBuild/Assets/Package",
       "major_minor": "0.1",
       "registries": {
         "npm": "org.outernet.playerbuild"

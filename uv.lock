@@ -2,6 +2,12 @@ version = 1
 revision = 3
 requires-python = ">=3.13"
 
+[manifest]
+members = [
+    "unity-devkit",
+    "unity-devkit-repo",
+]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"
@@ -333,20 +339,13 @@ wheels = [
 [[package]]
 name = "unity-devkit"
 version = "0.0.0.dev0"
-source = { editable = "." }
+source = { editable = "packages/python/unity-devkit" }
 dependencies = [
     { name = "bashrun" },
     { name = "ci-devkit" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "typer" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "basedpyright" },
-    { name = "pytest" },
-    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -358,9 +357,25 @@ requires-dist = [
     { name = "typer", specifier = ">=0.17.4" },
 ]
 
+[[package]]
+name = "unity-devkit-repo"
+version = "0.0.0"
+source = { virtual = "." }
+
+[package.dev-dependencies]
+dev = [
+    { name = "basedpyright" },
+    { name = "pytest" },
+    { name = "ruff" },
+    { name = "unity-devkit" },
+]
+
+[package.metadata]
+
 [package.metadata.requires-dev]
 dev = [
     { name = "basedpyright", specifier = ">=1.39.10" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "ruff", specifier = ">=0.14.11" },
+    { name = "unity-devkit", editable = "packages/python/unity-devkit" },
 ]

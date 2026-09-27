@@ -6,17 +6,17 @@ __pycache__/
 bookmark.md
 
 # PlayerBuild Unity harness
-PlayerBuild/*.csproj
-PlayerBuild/*.sln
-PlayerBuild/Assets/Packages/
-PlayerBuild/Assets/_LocalWorkspace
-PlayerBuild/Assets/_LocalWorkspace.meta
-PlayerBuild/Build/
-PlayerBuild/Build.meta
-PlayerBuild/Builds/
-PlayerBuild/Library/
-PlayerBuild/Logs/
-PlayerBuild/Temp/
-PlayerBuild/UserSettings/
-PlayerBuild/obj/
-PlayerBuild/.utmp/
+packages/unity/PlayerBuild/*.csproj
+packages/unity/PlayerBuild/*.sln
+packages/unity/PlayerBuild/Assets/Packages/
+packages/unity/PlayerBuild/Assets/_LocalWorkspace
+packages/unity/PlayerBuild/Assets/_LocalWorkspace.meta
+packages/unity/PlayerBuild/Build/
+packages/unity/PlayerBuild/Build.meta
+packages/unity/PlayerBuild/Builds/
+packages/unity/PlayerBuild/Library/
+packages/unity/PlayerBuild/Logs/
+packages/unity/PlayerBuild/Temp/
+packages/unity/PlayerBuild/UserSettings/
+packages/unity/PlayerBuild/obj/
+packages/unity/PlayerBuild/.utmp/

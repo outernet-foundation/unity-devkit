@@ -1,5 +1,5 @@
 {
   "PlayerBuild": {
-    "path": "PlayerBuild"
+    "path": "packages/unity/PlayerBuild"
   }
 }
