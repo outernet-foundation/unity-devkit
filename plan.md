@@ -88,9 +88,13 @@ file, then an aggressive-inlining audit applied to the result. The consolidation
 record: `player_build.py`'s only importers (both doors, `install.py`) already imported from
 `unity.py`; the earlier "mechanism vs orchestration" layering was aesthetic, not contractual;
 the C# prior art (`PlayerBuild.cs` holds vocabulary + orchestrator + apply family in one
-document) maps to `unity.py` as the Unity layer's single document. Merge direction forced by
-the cross-repo surface: prepo imports `unity_devkit.unity.editor_version` +
-`find_editor_for_version`, so `player_build` folded into `unity.py` — never the reverse.
+document) maps to one module holding the whole Unity layer. **Owner correction, same session:**
+the consolidated file is named `player_build.py`, not `unity.py` — the module is the
+player-build concept's home, and the legacy grab-bag name died with the merge. The cross-repo
+surface (prepo imports `unity_devkit.unity.editor_version` + `find_editor_for_version`) moved
+with it: prepo `9f6c944` re-points at `unity_devkit.player_build`, riding the same release
+(prepo pins `unity-devkit>=0.1.0`, so the import change and the release land in the usual
+lockstep).
 
 The audit (callsite census: production excl. intra-module, tests, cross-repo) and its executed
 rulings:
@@ -120,16 +124,19 @@ rulings:
   `QUIET_FAILURE_SIGNATURES` (documented extension point), `find_editor_for_version` +
   `editor_version` (prepo contract regardless of count), `PLATFORM_CONFIGS` (matrix + core).
 
-Result: one `unity.py` (~250 lines), `player_build.py` deleted; test files renamed/ported
+Result: one `player_build.py` (~250 lines, after the owner correction above), `player_build.py`
+the module deleted at session 11's extraction re-absorbs everything and `unity.py` is deleted
+too; test files renamed/ported
 (`test_player_build.py` + `test_resolve.py` → `test_build_player.py`, 10 harness tests;
 `test_dispatch_workflow_generator.py` sheds the two env tests it hosted). Suite 41 (net −8
-removed, +10 ported/new). Commits `9aaef7d` (code, gates ruff/basedpyright 0/0/pytest 41 —
-one ruff Yoda-condition autofix on the new flags assertion) + `d49e358` (AGENTS: the
-supporting-modules paragraph now names `unity.py` as the Unity layer's single document; the
-lookup-helpers and environment-transport constraints reworded off the dead symbols). No
-workflow, verb, or consumer surface changed — session 11's pins and releases are untouched.
+removed, +10 ported/new). Commits `9aaef7d` (consolidation + inlines) + `d49e358` (AGENTS
+supporting-modules/lookup/transport updates) + `d4719da`/`38498c0` (the rename to
+`player_build.py` and its doc follow) — gates ruff/basedpyright 0/0/pytest 41 throughout (one
+ruff Yoda-condition autofix on the new flags assertion). No
+workflow, verb, or consumer surface changed beyond prepo's import — session 11's pins and
+releases are untouched.
 
-Next session: unchanged — verify the operator push (devkit now 61 ahead, HEAD = this commit)
+Next session: unchanged — verify the operator push (devkit now 64 ahead, HEAD = this commit)
 and the dual-registry release, then CT's gated Phase 6 remainder.
 
 ## Status (2026-09-27, session 11 close — build-door rotation + player-build core)
