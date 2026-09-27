@@ -19,93 +19,6 @@ using UnityEngine.XR.OpenXR.Features;
 
 namespace Outernet
 {
-    public sealed class PlatformSpec
-    {
-        public string Name = "";
-        public string XrLoader = "";
-        public string Defines = "";
-        public string[] OpenXrFeatures = Array.Empty<string>();
-        public GraphicsDeviceType GraphicsApi;
-        public AndroidArchitecture Architecture;
-        public MobileTextureSubtarget TextureSubtarget;
-        public NormalMapEncoding NormalMapEncoding = NormalMapEncoding.DXT5nm;
-        public Il2CppCompilerConfiguration DevelopmentIl2Cpp = Il2CppCompilerConfiguration.Debug;
-        public ManagedStrippingLevel DevelopmentStripping = ManagedStrippingLevel.Disabled;
-        public Il2CppCompilerConfiguration ReleaseIl2Cpp = Il2CppCompilerConfiguration.Master;
-        public ManagedStrippingLevel ReleaseStripping = ManagedStrippingLevel.Low;
-        public ApiCompatibilityLevel ApiCompatibility = ApiCompatibilityLevel.NET_Standard;
-    }
-
-    public static class Platform
-    {
-        private static readonly Dictionary<string, PlatformSpec> Table = new()
-        {
-            {
-                "AndroidMobile",
-                new PlatformSpec
-                {
-                    Name = "AndroidMobile",
-                    XrLoader = "UnityEngine.XR.ARCore.ARCoreLoader",
-                    Defines = "OUTERNET_ANDROID_MOBILE",
-                    GraphicsApi = GraphicsDeviceType.OpenGLES3,
-                    Architecture = AndroidArchitecture.ARM64,
-                    TextureSubtarget = MobileTextureSubtarget.ASTC,
-                }
-            },
-            {
-                "MagicLeap2",
-                new PlatformSpec
-                {
-                    Name = "MagicLeap2",
-                    XrLoader = "UnityEngine.XR.OpenXR.OpenXRLoader",
-                    Defines = "OUTERNET_MAGIC_LEAP;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS",
-                    OpenXrFeatures = new[]
-                    {
-                        "UnityEngine.XR.OpenXR.Features.Interactions.HandTracking",
-                        "UnityEngine.XR.OpenXR.Features.Interactions.HandInteractionProfile",
-                        "MagicLeap.OpenXR.Features.MagicLeapFeature",
-                        "MagicLeap.OpenXR.Features.MagicLeapRenderingExtensionsFeature",
-                        "MagicLeap.OpenXR.InteractionProfiles.MagicLeapControllerProfile",
-                        "MagicLeap.OpenXR.Features.LocalizationMaps.MagicLeapLocalizationMapFeature",
-                        "MagicLeap.OpenXR.Features.MarkerUnderstanding.MagicLeapMarkerUnderstandingFeature",
-                        "MagicLeap.OpenXR.Features.Planes.MagicLeapPlanesFeature",
-                        "MagicLeap.OpenXR.Features.MagicLeapReferenceSpacesFeature",
-                        "MagicLeap.OpenXR.Features.UserCalibration.MagicLeapUserCalibrationFeature",
-                    },
-                    GraphicsApi = GraphicsDeviceType.Vulkan,
-                    Architecture = AndroidArchitecture.X86_64,
-                    TextureSubtarget = MobileTextureSubtarget.DXT,
-                }
-            },
-        };
-
-        public static PlatformSpec Find(string platformName)
-        {
-            if (Table.TryGetValue(platformName, out PlatformSpec spec))
-            {
-                return spec;
-            }
-
-            throw new BuildFailedException(
-                $"Unknown platform '{platformName}' — expected one of: {string.Join(", ", Names())}"
-            );
-        }
-
-        public static IReadOnlyList<string> Names()
-        {
-            return Table.Keys.ToArray();
-        }
-    }
-
-    public sealed class PlatformRecord
-    {
-        [JsonProperty("platform")]
-        public string Platform { get; set; } = "";
-
-        [JsonProperty("development")]
-        public bool Development { get; set; }
-    }
-
     public sealed class BuildVerification : IPreprocessBuildWithReport
     {
         public int callbackOrder => 0;
@@ -161,7 +74,7 @@ namespace Outernet
             string environmentName = Environment.GetEnvironmentVariable("ENVIRONMENT") ?? "";
             Dictionary<string, string> environmentFields = ReadEnvironmentFields();
 
-            PlatformSpec spec = Platform.Find(platform);
+            Platform.Spec spec = Platform.Find(platform);
             BuildConfig config = LoadConfig();
 
             Apply(spec, development, config, environmentName, environmentFields);
@@ -212,7 +125,7 @@ namespace Outernet
         }
 
         public static void Apply(
-            PlatformSpec spec,
+            Platform.Spec spec,
             bool development,
             BuildConfig config,
             string environment,
@@ -228,7 +141,7 @@ namespace Outernet
             WritePlatformRecord(spec, development);
         }
 
-        public static void ApplyPlatformFacts(PlatformSpec spec, bool development)
+        public static void ApplyPlatformFacts(Platform.Spec spec, bool development)
         {
             PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.Android, spec.Defines);
             PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { spec.GraphicsApi });
@@ -376,7 +289,7 @@ namespace Outernet
             Debug.Log($"[playerbuild] preset '{environment}' copied {sourcePath} -> {environmentConfig.TargetPath}");
         }
 
-        public static void ApplyXr(PlatformSpec spec)
+        public static void ApplyXr(Platform.Spec spec)
         {
             XRGeneralSettings xrSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(
                 BuildTargetGroup.Android
@@ -472,7 +385,7 @@ namespace Outernet
             );
         }
 
-        private static void WritePlatformRecord(PlatformSpec spec, bool development)
+        private static void WritePlatformRecord(Platform.Spec spec, bool development)
         {
             if (!AssetDatabase.IsValidFolder(WorkspaceDirectory))
             {
@@ -481,14 +394,14 @@ namespace Outernet
 
             File.WriteAllText(
                 PlatformRecordPath,
-                JsonConvert.SerializeObject(new PlatformRecord { Platform = spec.Name, Development = development })
+                JsonConvert.SerializeObject(new Platform.Record { Platform = spec.Name, Development = development })
             );
             Debug.Log(
                 $"[playerbuild] platform record written: {spec.Name} ({(development ? "development" : "release")})"
             );
         }
 
-        public static PlatformRecord ReadPlatformRecord()
+        public static Platform.Record ReadPlatformRecord()
         {
             if (!File.Exists(PlatformRecordPath))
             {
@@ -497,14 +410,14 @@ namespace Outernet
                 );
             }
 
-            return JsonConvert.DeserializeObject<PlatformRecord>(File.ReadAllText(PlatformRecordPath))
+            return JsonConvert.DeserializeObject<Platform.Record>(File.ReadAllText(PlatformRecordPath))
                 ?? throw new BuildFailedException($"platform record at {PlatformRecordPath} is empty — run Apply");
         }
 
         public static void Verify(BuildTarget platform)
         {
-            PlatformRecord record = ReadPlatformRecord();
-            PlatformSpec spec = Platform.Find(record.Platform);
+            Platform.Record record = ReadPlatformRecord();
+            Platform.Spec spec = Platform.Find(record.Platform);
             BuildConfig config = LoadConfig();
             PlatformOverrides overrides = PlatformFor(config, spec.Name);
             BuildProfile activeProfile = BuildProfile.GetActiveBuildProfile();

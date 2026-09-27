@@ -58,7 +58,7 @@ namespace Outernet
         {
             try
             {
-                PlatformRecord record = PlayerBuild.ReadPlatformRecord();
+                Platform.Record record = PlayerBuild.ReadPlatformRecord();
                 return $"{record.Platform} ({(record.Development ? "development" : "release")})";
             }
             catch (BuildFailedException)
