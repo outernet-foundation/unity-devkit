@@ -2,7 +2,7 @@ import os
 from collections.abc import Iterator
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, ConfigDict, TypeAdapter, field_validator
 
 CATALOG_FILENAME = "unity-devkit.json"
 PROJECT_MARKER = Path("ProjectSettings") / "ProjectVersion.txt"
@@ -15,8 +15,6 @@ class CatalogEntry(BaseModel):
     path: Path
     builds: list[str] | None = None
     execute_methods: dict[str, str] | None = None
-    package: str | None = None
-    grant_permissions: list[str] = Field(default_factory=list)
     tag_prefix: str | None = None
 
     @field_validator("path")

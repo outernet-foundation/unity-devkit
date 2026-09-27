@@ -31,7 +31,6 @@ def test_catalog_entry_loads_with_intent_fields(tmp_path: Path, monkeypatch: pyt
     assert projects["Alpha"].path == Path.cwd() / "Alpha"
     assert projects["Alpha"].builds == ["Linux"]
     assert projects["Alpha"].tag_prefix == "alpha"
-    assert projects["Alpha"].grant_permissions == []
 
 
 def test_catalog_name_is_decoupled_from_directory_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

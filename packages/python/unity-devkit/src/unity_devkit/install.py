@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from bashrun.bash import bash, bash_check, bash_handoff, bash_output
+from bashrun.bash import bash, bash_handoff, bash_output
 
 from .compile_unity import build_unity_project
 from .projects import load_catalog
@@ -31,16 +31,6 @@ def main(
     ] = None,
     run: Annotated[int | None, typer.Option("--run", "-r", help="Specific GitHub Actions run ID")] = None,
     serial: Annotated[str | None, typer.Option("--serial", "-s", help="adb device serial")] = None,
-    no_grant_permissions: Annotated[
-        bool,
-        typer.Option(
-            "--no-grant-permissions",
-            help=(
-                "Skip the post-install `adb shell pm grant` calls listed under `grant_permissions` "
-                "for the project's entry in unity-devkit.json. Permissions are granted by default."
-            ),
-        ),
-    ] = False,
     build_locally: Annotated[
         bool,
         typer.Option(
@@ -148,19 +138,7 @@ def main(
 
         print(f"Installing: {apks[0].name}")
         adb_prefix = f"adb -s {serial}" if serial else "adb"
-        package = project_config.package
-        if package:
-            bash_check(f"{adb_prefix} uninstall {package}")
         bash(f"{adb_prefix} install {apks[0]}")
-        permissions = project_config.grant_permissions
-        if permissions and not no_grant_permissions:
-            if not package:
-                raise typer.BadParameter(
-                    f"{project_name} has grant_permissions but no 'package' field in its unity-devkit.json entry"
-                )
-            for permission in permissions:
-                print(f"Granting {permission} to {package}")
-                bash(f"{adb_prefix} shell pm grant {package} {permission}")
         print("Done.")
     else:
         if not executables:
