@@ -81,6 +81,83 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 11 close — build-door rotation + player-build core)
+
+Owner-initiated from the naming: `compile_unity.py` builds players while `check_unity.py`
+compiles — inverted names — plus suspected duplication between the local and CI build doors.
+Exploration confirmed both, and worse than duplication: the CI door
+(`build_unity.py`'s build step) was a near-verbatim inline of the local core MINUS the
+stale-artifact guard — the mtime-diff that catches a silently no-op'd incremental build. CI
+restores `Library/` from cache, i.e. the exact conditions the guard was born from, yet its
+collect step copied whatever sat in `Build/` and would have uploaded a stale APK as fresh.
+Also: `compile_unity.py` hosted a function named `build_unity_project` (module says compile,
+function says build, sibling module is `build_unity.py`).
+
+Rulings that shaped the change — do not relitigate:
+- The pin-coupling cost of changing a verb's meaning was spelled out and accepted: one-time,
+  per-consumer (old workflow SHA + new package = loud typer failure; each consumer crosses once
+  via a lockstep workflow-SHA + package bump, after which pin independence returns). Spent
+  pre-push riding the pending release — the cheapest moment, with CT/MIS flips already scheduled
+  to bump both pins anyway.
+- `check-unity` ruled vague ("could mean run unit tests", with `test-unity` beside it). Successor
+  named by the owner: `compile-check-unity`. Runner-up `compile-unity` was passed over: shorter
+  and literally true, but the explicit name won.
+- Workflow filenames corrected broadly (owner ruling): `unity-build.yml` → `build-unity.yml`,
+  `unity-check.yml` → `compile-check-unity.yml`, `unity-prepare.yml` → `prepare-unity.yml` —
+  verb-first, matching the verb convention. Extended by the same spirit (agent extension,
+  surfaced at handoff): the matrix verbs followed (`unity-matrix`/`unity-check-matrix` →
+  `build-unity-matrix`/`compile-check-unity-matrix`; functions `build_matrix`/
+  `compile_check_matrix` in `matrix.py`).
+- Consumer pins updated in the same session (owner choice) rather than left for flip phases.
+- `versioning.py` dissolved into the build core: post-boundary-ruling it was a module named
+  after a deleted concept holding one writer with, post-extraction, one caller. The stamping
+  inlined as a loop over `(field, value)` pairs; `replace_serialized_field` survives as the leaf
+  helper owning the count-mismatch guard. Test port grew beyond import-path-only (the inline
+  removed the import target): `test_player_build.py` drives `build_player` against a tmp
+  repository with module-level fake Unity runners (no closures) — stamp composition, opaque
+  version strings, missing-field refusal, stale-artifact guard (41 tests total, net +1).
+
+Landed on local main, each commit gated ruff + basedpyright 0/0 + pytest green:
+- `6fe54f4` — extraction: new `player_build.py` hosts `build_player` (the old
+  `build_unity_project` body: resolve → prepare → stamp → mtime snapshot → batchmode entry run →
+  produced-diff guard), plus `snapshot_artifacts` and `replace_serialized_field`; both doors and
+  `install --build` call it; the CI door gains the stale-artifact guard; `resolve_unity_project`
+  in `unity.py` absorbs the gate's duplicated project-validation head; the artifact suffix set
+  grew `.x86_64` — Linux players, without which the guard would false-fire on CI Linux the
+  moment it adopted it (and install's local-launch filter had the same latent miss, fixed with
+  it).
+- `08d5378` — the rotation: `compile_unity.py` → `build_unity.py` (`build-unity`, local door),
+  `build_unity.py` → `ci_build_unity.py` (`ci-build-unity`), `check_unity.py` →
+  `compile_check_unity.py` (`compile-check-unity`); pyproject scripts follow (the dead
+  `check-unity` line removed); the workflow family renames with internal verb/job/display-name
+  updates; devkit ci.yml repoints at `compile-check-unity.yml`; the dispatch generator's
+  `COMPILE_ERROR_SIGNATURES` import, help text, and example pins follow; install's help text
+  follows; `test_matrix`/`test_dispatch_workflow_generator` updated. Verb probes confirmed the
+  new entry points resolve and run.
+- `77c3408` — prose: AGENTS table rows + supporting-modules paragraph (gaining `player_build.py`,
+  losing `versioning.py`) + constraints vocabulary; the entry-point-contract paragraph gained the
+  sanctioned-lockstep clause; README command catalog and workflow links follow.
+
+Cross-repo execution (one commit per repo, all on their unpushed dev stacks, each repinning to
+`08d5378` — the rotation commit; later devkit commits don't touch workflow content): Nessle
+`711603c`, ObserveThing `6d0562d`, StatefulUnity `f35873f`, lbe-toolkit `9659501`, placeframe
+`14fba5e2` (+ prose `bdc1afd2`, its workflows AGENTS row) — `unity-check.yml@4d6b4b7` →
+`compile-check-unity.yml@08d5378…`; Make-it-Sing `ba7a417` (`unity-build.yml@cfd487e` →
+`build-unity.yml@08d5378…`) and CT `73f8b9a` (`unity-build.yml@d7bb6ba` → same) — CT's repin
+absorbs session-10's "repin if devkit history moves" assumption. Known dirt left as found:
+MIS `.env.airgapped`, CT's Unity assets + `extraction-plan.md`, ObserveThing's untracked WIP.
+
+Assumptions on record: consumers taking a renamed workflow SHA must bump their unity-devkit
+package pin past this release in the same change (the lockstep crossing) — their punt-lift PRs
+already consolidate exactly that; the release-devkit `0.1.17` presumption from session 10 is
+unchanged. The dispatch generator's `--build-workflow` reference is consumer-supplied, so
+already-generated dispatch workflows (none exist yet — CT generates its own in Phase 6) carry no
+rename debt.
+
+Next session: unchanged from the session-10 close — verify the operator push (devkit now 58
+ahead, HEAD = this commit) and the dual-registry release, then CT's gated Phase 6 remainder per
+the shrunk list there, its workflow pin already repointed.
+
 ## Status (2026-09-27, session 10 close — catalog shrink + the versioning boundary)
 
 Three rulings executed, all pre-push, riding the pending releases:
