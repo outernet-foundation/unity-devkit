@@ -202,7 +202,7 @@ def parse_environment_fields(entries: Sequence[str]) -> dict[str, str]:
     return fields
 
 
-def child_environment(
+def playerbuild_environment(
     platform: str, development: bool, environment_preset: str, fields: dict[str, str]
 ) -> dict[str, str]:
     env = {"DEVELOPMENT": "true" if development else "false"}

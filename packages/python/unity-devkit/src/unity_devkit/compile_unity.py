@@ -4,7 +4,7 @@ from typing import Annotated
 import typer
 
 from .unity import (
-    child_environment,
+    playerbuild_environment,
     parse_environment_fields,
     prepare_unity_project,
     resolve_unity_build,
@@ -72,7 +72,7 @@ def build_unity_project(
     build_directory = project_path / "Build"
     before = snapshot_artifacts(build_directory)
 
-    env = child_environment(playerbuild_platform, development, environment_preset, environment_fields or {})
+    env = playerbuild_environment(playerbuild_platform, development, environment_preset, environment_fields or {})
     run_unity_batchmode(project_path, f"{build_flag} -executeMethod {execute_method}", nographics=False, env=env)
 
     after = snapshot_artifacts(build_directory)

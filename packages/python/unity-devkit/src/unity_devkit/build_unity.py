@@ -13,7 +13,7 @@ from .license_restore import restore_license
 from ci_devkit.setup import configure_git, install_dotnet
 from ci_devkit.setup_oras import install_oras
 from .unity import (
-    child_environment,
+    playerbuild_environment,
     parse_environment_fields,
     prepare_unity_project,
     resolve_unity_build,
@@ -83,7 +83,7 @@ def main(
             full_version = stamp_build_version(unity_project_path, tag_prefix, run_number, release=(branch == "main"))
             print(f"Stamped bundleVersion {full_version} (bundleVersionCode={run_number}) into ProjectSettings")
 
-        env = child_environment(playerbuild_platform, development == "true", environment_preset, fields)
+        env = playerbuild_environment(playerbuild_platform, development == "true", environment_preset, fields)
         run_unity_batchmode(
             unity_project_path, f"{build_flag} -executeMethod {execute_method}", nographics=False, env=env
         )
