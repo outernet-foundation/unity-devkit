@@ -20,7 +20,7 @@ namespace Outernet
             string classPath = Environment.GetEnvironmentVariable("ENVIRONMENT_CONFIG_CLASS")!;
             string environment = Environment.GetEnvironmentVariable("ENVIRONMENT")!;
             Dictionary<string, string> fields = PlayerBuild.ReadEnvironmentFields();
-            EnvironmentConfig.DumpEnvironment();
+            PlayerBuild.DumpEnvironment();
             PlayerBuild.ApplyEnvironment(classPath, environment, fields);
             FixtureEnv live = AssetDatabase.LoadAssetAtPath<FixtureEnv>(FixtureEnv.TargetPath);
             if (live == null)

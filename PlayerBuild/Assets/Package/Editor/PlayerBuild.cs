@@ -134,6 +134,20 @@ namespace Outernet
             }
         }
 
+        public static void DumpEnvironment()
+        {
+            string classPath =
+                Environment.GetEnvironmentVariable("ENVIRONMENT_CONFIG_CLASS") ?? LoadConfig().EnvironmentConfig;
+            if (classPath.Length == 0)
+            {
+                throw new BuildFailedException(
+                    "No environment class — set build-config.json 'environment_config' or the ENVIRONMENT_CONFIG_CLASS env var"
+                );
+            }
+
+            new EnvironmentConfig(classPath).Dump();
+        }
+
         public static void RunBuild()
         {
             string platform = Environment.GetEnvironmentVariable("PLATFORM");

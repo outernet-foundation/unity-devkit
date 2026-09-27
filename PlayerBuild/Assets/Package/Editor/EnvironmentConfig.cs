@@ -5,7 +5,6 @@ using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json;
 using UnityEditor;
-using UnityEditor.Build;
 using UnityEngine;
 
 namespace Outernet
@@ -25,29 +24,18 @@ namespace Outernet
         public Dictionary<string, string> Presets = new(StringComparer.OrdinalIgnoreCase);
         public List<EnvironmentFieldLeaf> Fields = new();
 
-        public static void DumpEnvironment()
+        public void Dump()
         {
-            string classPath =
-                Environment.GetEnvironmentVariable("ENVIRONMENT_CONFIG_CLASS")
-                ?? PlayerBuild.LoadConfig().EnvironmentConfig;
-            if (classPath.Length == 0)
-            {
-                throw new BuildFailedException(
-                    "No environment class — set build-config.json 'environment_config' or the ENVIRONMENT_CONFIG_CLASS env var"
-                );
-            }
-
-            EnvironmentConfig environmentConfig = new(classPath);
             Debug.Log(
                 JsonConvert.SerializeObject(
                     new
                     {
-                        class_name = environmentConfig.ClassType.FullName,
-                        mode_field = environmentConfig.ModeFieldName,
-                        target_path = environmentConfig.TargetPath,
-                        presets = environmentConfig.Presets,
-                        enums = environmentConfig
-                            .Fields.Where(leaf => leaf.FieldType.IsEnum)
+                        class_name = ClassType.FullName,
+                        mode_field = ModeFieldName,
+                        target_path = TargetPath,
+                        presets = Presets,
+                        enums = Fields
+                            .Where(leaf => leaf.FieldType.IsEnum)
                             .Select(leaf => leaf.FieldType)
                             .Distinct()
                             .Select(type => new
@@ -56,11 +44,7 @@ namespace Outernet
                                 values = Enum.GetNames(type),
                                 flags = type.IsDefined(typeof(FlagsAttribute), false),
                             }),
-                        fields = environmentConfig.Fields.Select(leaf => new
-                        {
-                            path = leaf.Path,
-                            field_type = leaf.FieldType.Name,
-                        }),
+                        fields = Fields.Select(leaf => new { path = leaf.Path, field_type = leaf.FieldType.Name }),
                     }
                 )
             );
