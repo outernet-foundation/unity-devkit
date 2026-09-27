@@ -62,13 +62,22 @@ jobs:
 
       - uses: actions/checkout@v5
 
-      - uses: ./.github/actions/unity-container-prep
+      - uses: astral-sh/setup-uv@v7
         with:
-          cache-tag: ${{ needs.prepare.outputs.cache-tag }}
-          github-token: ${{ github.token }}
-          unity-email: ${{ secrets.UNITY_EMAIL }}
-          unity-password: ${{ secrets.UNITY_PASSWORD }}
-          unity-serial: ${{ secrets.UNITY_SERIAL }}
+          enable-cache: true
+          save-cache: "false"
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Activate Unity license
+        run: uv run --no-sync activate-unity-license --oras-push
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LICENSE_CACHE_TAG: ${{ needs.prepare.outputs.cache-tag }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
 
       - name: Cache UPM packages
         uses: actions/cache@v5
