@@ -7,8 +7,10 @@ in place as work lands.
 
 This is an execution plan, not a status doc. A session with no prior context should be able
 to execute it top to bottom. It was rewritten wholesale on 2026-09-27 after the owner
-reversed the profiles-spine architecture (rewrite 2) in favor of **apply-facts-to-globals**.
-The previous plan is in git history; nothing from it that contradicts this document survives.
+reversed the profiles-spine architecture (rewrite 2) in favor of **apply-facts-to-globals**,
+then amended later the same day (session 2): the environment model went **class-sourced**
+(§Environment model). The previous plans are in git history; nothing from them that
+contradicts this document survives.
 
 **The reversal in one paragraph**: `BuildPipeline.BuildAssetBundles` has no profile form and
 never will — it bakes against ambient global state — so an apply-facts-to-globals path must
@@ -21,6 +23,20 @@ today), version shadowing dies structurally in CI (no snapshots can exist there)
 build preprocessor verifying effective values against the table makes silent
 misconfiguration impossible at every door we own. Build profiles are declared **irrelevant
 to the system**: never shipped, never authored, never activated, never guarded-as-such.
+
+**The environment pivot (2026-09-27, session 2)**: rewrite 3 had carried rewrite 2's
+JSON-declared environment model (`environment_config.fields` with paths/types/enum lists) —
+a hand-maintained shadow of the consumer's C# class and a permanent sync tax on the app
+author (the Elliot annoyance, judged justified). The owner reversed it: **the C# class is
+the source of truth for the environment**, reflected into every door; `build-config.json`
+carries one string (the class file path); presets AND per-field overrides exist at every
+door (GitHub dispatch, configure window, CLI); `ConfigMode`/`ResolveEffective` survive
+(their earlier-scheduled deletion is reversed); CT converts to the MIS shape. Full design:
+§Environment model. Rulings that shaped it — do not relitigate: disturb MIS minimally
+(Elliot's code); CT is freely modifiable; no curation or secret-exclusion machinery
+(YAGNI); no discovery — one in-class preset map; no attributes on the env class
+(dependency direction); `UnityEnvInspector` is deleted and subsumed (not stubbed), with
+Override as a first-class *derived* concept (the map's complement).
 
 ## Owner C# style rules (2026-09-26 review loop; binding for this package, all phases)
 
@@ -58,6 +74,35 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
+
+## Status (2026-09-27, session 2 close — environment pivot locked; design only, no code)
+
+Session 2 was design-only: no code changed in any repo; the registries and pushes below
+are untouched. This document now carries the environment amendment (§Environment model,
+the pivot paragraph above, phases V/CT/MIS, facts F32–F36, the superseded list).
+
+Next session, in order (amends the session-close list below; Phase V remains verified
+absent in the fold release — no typed flags, no child-env control, no dispatch generator,
+`--build-env` still alive end-to-end):
+1. **Implement the environment amendment + Phase V** in `/workspace/unity-devkit`.
+   Package C# (rides the same release via npm): dump executeMethod; env-member
+   resolution (`Presets`/`TargetPath`, name+shape matched, loud on
+   absent/mismatched/ambiguous); preset-copy + field apply with reflection validation;
+   verification read-back of env values; mode-aware window (map-complement gating,
+   banners, preset-dropdown = mode + copy). Python: typed
+   `--environment`/`--development`/`--environment-field` flags; JSON
+   `ENVIRONMENT_FIELDS` transport; child-env control; dispatch generator verb
+   (dump-fed; panel rules in §Environment model); `--build-env` deletion end-to-end
+   (`build_unity.py` + hosted `unity-build.yml`). One devkit release carries both
+   registries; version = next patch after 0.1.15; preflight battery, `check-unity`,
+   CSharpier gate it.
+2. **Phase CT** — now opens with the MIS-shape conversion (`CaptureEnv`,
+   `SettingsManager` rewire, `airgapped-settings.json` deletion; see phase list), then
+   the flip items; still includes the open Phase I acceptance probe (hand-vandalize an
+   applied global, build, expect the loud "run Apply" preprocessor failure; the harness
+   cannot host it — no `build-config.json` by design). Push subject to the
+   consumer-push punt below unless the operator carves an exception.
+3. **Phase MIS**, then **Phase C** — same punt consideration.
 
 ## Status (2026-09-27, session close — push queue remains, then the consumer flips)
 
@@ -103,7 +148,8 @@ until a separate initiative completes, then lands as **one PR per repo** consoli
 stacked work. Until then: no pushes to placeframe, ObserveThing, Nessle, StatefulUnity,
 lbe-toolkit, or unitybuild.
 
-Next session, in order:
+Next session, in order (superseded by the session-2 list at the top of Status; retained
+for the record):
 1. **Phase V is OPEN WORK, verified absent (2026-09-27)** — the devkit pushed with the fold
    carries none of it: no typed `--environment`/`--development`/`--environment-field`
    flags, no child-env control, no dispatch generator verb, and `--build-env` still alive
@@ -142,8 +188,8 @@ profile and never hear about it from us.
 (defines, graphics API, encoding, architecture, columns per dev/release, API compat),
 `EditorUserBuildSettings.androidBuildSubtarget`, the XR loader sweep + OpenXR feature
 toggles, render pipeline assignment, `additional_defines` merge, environment
-materialization (`ApplyEnvironment` + `ApplyFieldValues`, unchanged model) — then write
-the platform record. Three callers: the batchmode entry (facts from env vars), the
+materialization (preset copy into `TargetPath` + reflection-validated SerializedObject
+field writes — §Environment model) — then write the platform record. Three callers: the batchmode entry (facts from env vars), the
 configure window's Apply button, and — at the MIS flip — the rewired bundle-bake entry
 points (facts for the bake's platform).
 
@@ -198,36 +244,124 @@ devkit stamps `bundleVersion`/`AndroidBundleVersionCode` into global
 On editor machines the ambient version is whatever globals say (as today). No package
 involvement.
 
-### Environment model — UNCHANGED from rewrite 2
+### Environment model — class-sourced (2026-09-27 amendment; supersedes rewrite 2's carryover)
 
-`build-config.json` carries one optional `environment_config` umbrella; presets are
-name → `Assets/` source path; unset `ENVIRONMENT` with no `default_preset` is a logged
-no-op; overrides (`ENVIRONMENT_FIELDS`) are the only value-setting layer, applied through
-`PlayerBuild.ApplyFieldValues`; the configure window's pane is a write-through view of the
-workspace with snap-to-preset as the one destructive write; the package is
-semantics-blind. Full schema and semantics: AGENTS.md (authoritative) and the schema
-sketch below.
+The consumer's C# env class is the single source of truth for environment shape,
+vocabulary, presets, and target. The package never compiles against it and never models
+its runtime semantics — it reflects. Nothing about the environment is declared outside
+the class.
+
+**`build-config.json`'s entire env content is one string:**
+
+```json
+"environment_config": "Assets/App/UnityEnv.cs"
+```
+
+**The class is the complete env-system description** — four reflectable things, matched
+by well-known member name + shape, failing loudly on absent/mismatched/ambiguous:
+
+| thing | MIS form | match rule |
+|---|---|---|
+| env shape | `UnityEnv`'s serialized fields/enums | `MonoScript.GetClass()` + reflection |
+| vocabulary | the `ConfigMode` enum | the map's key type |
+| preset map | `public static readonly Dictionary<ConfigMode, string> Presets` | static `IDictionary<enum,string>`; values = committed preset asset paths |
+| live target | `public const string TargetPath = "Assets/_LocalWorkspace/Resources/UnityEnv.asset"` | const/static string |
+
+**No marker attributes.** An attribute is a package type; `UnityEnv` is a runtime class
+and the package is editor-only, so attributes would force a package Runtime assembly plus
+a consumer asmdef edge — app code depending on build tooling, the wrong direction. The
+package must observe the consumer (reflection), never be load-bearing inside it. Magic
+names couple conventionally instead: they fail loudly at the dump/apply boundary and the
+drift gate, and cost zero machinery. (Unity's own precedent: `Awake`/`Update` are magic
+names; attributes are only free from unconditional dependencies like `UnityEngine`.)
+
+**Enum-keyed map**: compile-safe renames in consumer code; one vocabulary shared with the
+`configMode` field and `ResolveEffective`; door spellings are enum names,
+case-insensitive (`air-gapped` → `airgapped` migrates at the flips); `Override` is
+structurally not-a-preset by absence from the map. **No discovery** — filename-derived
+preset lookup (`FindAssets t:Type` etc.) was considered and rejected; the in-class map is
+the one map.
+
+**Presets and per-field overrides, at every door** (GitHub dispatch, configure window,
+CLI):
+
+- Preset = whole-asset copy of the map's asset into `TargetPath`; the mode travels with
+  the copy (`ApplyConfigType`'s mechanism, generalized).
+- Overrides = `SerializedObject` path-writes onto the live asset, on top of the copy.
+  Unknown path or bad enum value fails loudly at apply (reflection-validated; the JSON
+  `fields` schema is dead).
+- The package's contract ends at "the live asset holds preset ⊕ overrides" plus the
+  verification read-back of those values. Runtime resolution (`ResolveEffective`,
+  Supabase remote fetch, F33's live/effective split) is consumer semantics — unmodeled,
+  untouched, and load-bearing: field overrides take effect at runtime precisely because
+  AppSetup reads live `localConfig`. Do not unify the split.
+- Unset environment = ambient no-op: no copy; the live asset stays as-is, whatever its
+  mode.
+
+**`ConfigMode` + `ResolveEffective` survive** (owner reversal of this plan's earlier
+scheduled deletion). Presets stay available at runtime; the runtime indirection is not
+ours to model or remove. Whether a mode makes field overrides meaningful (e.g. Supabase
+fetches config remotely) is likewise consumer semantics — no package-side override-policy
+bits.
+
+**Override is first-class in the package — as the map's complement.** Enum values in the
+map: presets (copy semantics). Values outside the map: self-authoritative (no copy,
+hand-edited). The package never names "Override". Derived window rules:
+
+- mode selector = the asset field typed as the map's key enum (the same rule that dedups
+  the dispatch panel's field inputs);
+- preset mode → fields render read-only, banner: edits here are overwritten by the next
+  preset application — switch to Override to hand-edit;
+- Override mode → fields editable, banner: hand-edited, nothing overwrites these;
+- preset selection = set mode + copy (the one destructive write); Override selection =
+  set mode only.
+
+Window claims are about **write lifecycle only** (what survives the next preset
+application), never about what the runtime reads — the boundary that keeps the package
+truthful where `UnityEnvInspector`'s preview was half-untrue (F34). In preset mode the
+live asset IS the preset by construction (plus any door-applied override deltas, shown
+read-only) — mode-following without loading the canonical.
+
+**`UnityEnvInspector` is deleted at the MIS flip**, subsumed by the configure window.
+Fate of its bespoke parts: mode-following preview → reconstructed (above); mode-gated
+editability → the complement rule; help text + field curation → die. (Fallback on
+record: stub opening the window, if the click-the-asset workflow must be preserved.)
+
+**Dump verb** — package-generic executeMethod driven by the class pointer:
+`MonoScript.GetClass()` → reflect shape, enum, `Presets`, `TargetPath` → JSON on stdout.
+Consumer: the dispatch generator (Phase V). Drift-gated (F20 pattern): a class edit
+without dump regen is a loud CI failure — the accepted regen tax.
+
+**Dispatch panel rules** (generated static YAML; F20/F32 caps):
+
+- one `choice` input for preset, options = map keys; unset = ambient no-op;
+- one input per simple-typed field: bool → boolean checkbox, enum → choice dropdown,
+  string/number → text; arrays/structs self-exclude (no input type exists);
+- flags enums → text input taking comma-separated names (`Enum.Parse`'s native format;
+  numeric values also parse);
+- mechanical dedup: the field typed as the map's key enum is not emitted as a field
+  input (it IS the preset choice);
+- no curation, no secret-name exclusion (owner YAGNI ruling; F36 census — zero true
+  secrets; a future real secret belongs in GitHub environment secrets or equivalent,
+  outside this model entirely);
+- input values are plaintext in run UI/logs/payload (F32) — accepted: they are
+  configuration, not credentials. MIS budget: 19 fields + 3 controls = 22 of 25.
+
+**CLI (Phase V)**: `--environment <preset>` + repeatable `--environment-field
+path=value`; the door→entry transport carries the override set as a JSON payload
+(`ENVIRONMENT_FIELDS` = `{"path": "value", ...}` — comma-safe for flags values); the
+preset rides `ENVIRONMENT`. Uniform enum application rule, flags included: names parsed
+via `Enum.Parse` against the reflected member type → `SerializedProperty.intValue`;
+bool/string per property type.
+
+**One substrate forever**: `.asset` + `SerializedObject`. CT converts to the MIS shape at
+its flip (Phase CT); the package never grows a JSON env writer.
 
 ### build-config.json (target schema)
 
 ```json
 {
-  "environment_config": {
-    "target": "UnityEnv.asset",
-    "default_preset": "supabase",
-    "presets": {
-      "supabase": "Assets/App/Resources/BuildConfigs/UnityEnv.Supabase.asset",
-      "airgapped": "Assets/App/Resources/BuildConfigs/UnityEnv.Airgapped.asset"
-    },
-    "fields": {
-      "config_mode":   { "path": "configMode", "type": "enum",
-                         "values": ["Supabase", "Airgapped", "Override"] },
-      "log_level":     { "path": "localConfig.logLevel", "type": "enum",
-                         "values": ["Default", "Info", "Warning", "Error"] },
-      "statesync_url": { "path": "localConfig.stateSyncConnectionString", "type": "string" },
-      "log_groups":    { "path": "localConfig.logGroups", "type": "integer" }
-    }
-  },
+  "environment_config": "Assets/App/UnityEnv.cs",
   "platforms": {
     "AndroidMobile": {
       "render_pipeline": "Assets/Settings/AndroidMobile_PipelineAsset.asset",
@@ -240,26 +374,31 @@ sketch below.
 }
 ```
 
-Validation stays the closed set (see AGENTS.md). `platforms` keyed by base name, exactly
-two entries per consumer, no dev duplication (the entry applies the column from
-`DEVELOPMENT`).
+The env content is exactly one string — the env class file path; everything else derives
+by reflection (§Environment model). Validation stays the closed set (see AGENTS.md).
+`platforms` keyed by base name, exactly two entries per consumer, no dev duplication (the
+entry applies the column from `DEVELOPMENT`).
 
 ### Package shape
 
 `Assets/Package/Editor/`: `PlayerBuild.cs` (the `PlatformSpec` + `Platform` table vocabulary at
 the top, the `PlatformRecord` DTO, the `BuildVerification` preprocessor class; then `Entry`
 boundary catch; parameterless `RunBuild`; the `Apply` orchestrator and the application functions
-every door calls — platform facts, environment, XR, pipeline, defines; the record read/write;
-the OpenXR-retry build; the verification function), `ConfigureWindow.cs`
-(dropdown/dev-checkbox/Apply + environment pane), `BuildConfig.cs` (DTOs + parse validation),
-`SerializableBuildReport.cs`, the asmdef (references `UnityEditor.BuildProfileModule` for
+every door calls — platform facts, environment (env-member resolution, preset copy, field
+writes), XR, pipeline, defines; the dump entry; the record read/write; the OpenXR-retry build;
+the verification function), `ConfigureWindow.cs` (dropdown/dev-checkbox/Apply + mode-aware
+environment pane: preset dropdown = mode + copy, read-only gating per the map complement,
+banners), `BuildConfig.cs` (DTOs + parse validation), `SerializableBuildReport.cs`, the asmdef
+(references `UnityEditor.BuildProfileModule` for
 the verification reads), `.meta` files for all. One file per document kind (the table is
 vocabulary, not a document — it lives in `PlayerBuild.cs`). Conventions:
 namespace `Outernet` flat; always brace single-statement bodies; callers before callees;
 classes at top; no comments except greppable markers; no applier classes (F6); no unit
 tests ever (F6/F8) — verification is the compile gate, the preprocessor, and consumer CI.
 
-**No unit tests, no drift gate, no generated artifacts, no Profiles directory.**
+**No unit tests, no generated package artifacts, no Profiles directory.** (Generated,
+drift-gated things — dispatch workflows, consumer dump regen — live outside the package,
+in consumer repos and devkit CI; F20 pattern.)
 
 ### Unity 6 pin and upgrade outlook
 
@@ -349,8 +488,62 @@ none of it changes anything we depend on while profiles stay irrelevant.
 - **F31 bundle-bake call sites** (2026-09-27, repo-verified): see F15's correction —
   `Build.ConfigureForX` call sites in `CreateAssetBundles.cs` and
   `AssetBundleManagerWindow.cs` are flip work items.
+- **F32 GitHub dispatch input facts** (2026-09-27, sourced): input types are exactly
+  string/boolean/choice/number/environment — no secret/password type (open request since
+  2022: community discussions #12764/#5621/#26748); input values render plaintext in the
+  run UI, the event payload, and the "Set up job" log section before any step runs;
+  `::add-mask::` cannot mask retroactively (actions/runner#643, open since 2020); the one
+  sanctioned secret-adjacent mechanism is the `environment` input type (a selector — the
+  secret stays in the environment); 25-input cap (raised from 10 in 2025-12); 65,535-char
+  payload cap.
+- **F33 MIS runtime authority split** (2026-09-27, repo-verified): `AppSetup.Setup` reads
+  credentials from `ResolveEffective(live)` (canonical preset in preset modes) but reads
+  `configMode` and `localConfig` from the **live** asset (`Assets/App/AppSetup.cs:100-103`).
+  Load-bearing for this design: overrides write the live asset and take effect precisely
+  because runtime reads live `localConfig` — do not unify the split. CI never sees the
+  divergence (preset copy precedes the build).
+- **F34 `UnityEnvInspector` autopsy** (2026-09-27, repo-verified): the canonical-asset
+  guard checks nonexistent `Assets/App/BuildConfigs/` (actual:
+  `Assets/App/Resources/BuildConfigs/`) so its `DrawDefaultInspector` branch never fires;
+  the Airgapped/Supabase read-only preview renders the canonical's `localConfig` as if it
+  runs, but runtime reads live (F33) — half-untrue by design drift. Bespoke inventory:
+  mode-following preview, mode-gated editability, help text, field curation. Deleted at
+  the flip; the window reconstructs the first two truthfully (write-lifecycle framing).
+- **F35 CT storage map** (2026-09-27, repo-verified): preset source
+  `apps/CaptureTool/Assets/BuildConfigs/airgapped-settings.json`
+  (apiUrl/username/password — placeholder creds); build copies it to gitignored
+  `Assets/_LocalWorkspace/Resources/default-settings.json`; runtime `SettingsManager`
+  is three-tier — `persistentDataPath/settings.json` (auto-written on every settings
+  change; permanently shadows the baked default) → baked `Resources` `default-settings`
+  TextAsset (SimpleJSON via FofX.Stateful `StateObject.FromJSON`) → hardcoded fallbacks;
+  `SettingsState` is `StateValue<T>` properties, not serialized fields; `CONFIG_TYPE`
+  (`default`/`air-gapped`) arrives via ci.yml's `build-env`. Phase CT replaces this whole
+  substrate with the MIS shape.
+- **F36 UnityEnv secrets census** (2026-09-27, repo-verified): zero true secrets —
+  `supabaseApiKey` is a `sb_publishable_` key (public-by-design, RLS-gated),
+  `supabaseProjectId` is an identifier, `username`/`password` are the literals
+  `user`/`password` (Airgapped preset + live copy; CT identical). Basis for the YAGNI
+  ruling on panel secret-exclusion.
 
 ## Superseded decisions (do not relitigate)
+
+Environment amendments (2026-09-27, session 2):
+- The JSON environment schema — the `environment_config` umbrella
+  (`target`/`default_preset`/`presets` name→path/`fields` with paths, types, enum value
+  lists) — replaced by the class-sourced model; `default_preset` dies (ambient no-op
+  covers unset).
+- Discovery-based preset resolution (`FindAssets t:Type` + filename-derived names) —
+  rejected; the in-class enum-keyed map is the one map.
+- Marker attributes on the env class — rejected; dependency direction (the package
+  observes the consumer, never the reverse).
+- Panel curation and secret-name exclusion lists — rejected (YAGNI; F36).
+- Per-preset override-policy bits (`apply`/`refuse`) — rejected; whether a mode makes
+  overrides meaningful is consumer runtime semantics, not package policy.
+- The CT JSON substrate (package-side JSON env writer, preset-file-keys-as-shape) —
+  replaced by converting CT to the MIS shape; the package keeps one substrate.
+- Rewrite 3's scheduled deletions of `ConfigMode` + `ResolveEffective`, and the
+  `UnityEnvInspector → stub` item — reversed (survive) and upgraded to
+  delete-and-subsume respectively.
 
 Everything profiles-spine is superseded by this rewrite: Build Profile assets shipped in
 the package; the authoring pipeline (table → profile regeneration, bootstrap-by-copy,
@@ -374,31 +567,43 @@ rewrite 2): move `Assets/Package/` + harness + CI into `/workspace/unity-devkit`
 publisher bound to devkit's `release.yml`; this repo retires. Sequenced before the
 `0.1.12` release (OQ5).
 
-**Phase V — devkit release `0.1.12`** (operator, unchanged): push devkit main (typed
-`--environment`/`--development`/`--environment-field` flags, child-env control, dispatch
-generator verb, `--build-env` deletion, hosted `unity-build.yml` input migration).
+**Phase V — devkit release, next patch after 0.1.15** (amended): carries the environment
+amendment end-to-end. Package C# (npm `org.outernet.playerbuild`): the dump
+executeMethod; env-member resolution (`Presets`/`TargetPath`); preset copy + field apply
+with loud reflection validation; verification read-back of env values; mode-aware
+configure window. Python (PyPI `unity-devkit`): typed
+`--environment`/`--development`/`--environment-field` flags with the JSON
+`ENVIRONMENT_FIELDS` transport; child-env control; dispatch generator verb consuming the
+dump output (panel rules §Environment model); `--build-env` deletion end-to-end
+(`build_unity.py` + hosted `unity-build.yml`'s `build-env` input → preset/field inputs).
 
-**Phase CT — capture-tool flip**: npm-pin the package; write `build-config.json`
-(`environment_config`: `air-gapped` preset → `default-settings.json` source; no
-`default_preset` — unset env is the ambient no-op; `platforms["AndroidMobile"]`);
-migrate CI `--build-env CONFIG_TYPE=default` → `--environment`; catalog entry → the
-single executeMethod; generate the dispatch-wrapper workflow; delete
-`Assets/Editor/BuildScript.cs`; standardize Newtonsoft sourcing; convergence method;
-`compile-unity` local build; APK smoke (`aapt` versionName/Code vs the stamp); hand
-branch + SHA to operator.
+**Phase CT — capture-tool flip** (amended: opens with the MIS-shape conversion): write
+`CaptureEnv : ScriptableObject` (fields `apiUrl`/`username`/`password`; preset enum;
+`Presets` map; `TargetPath` = `Assets/_LocalWorkspace/Resources/CaptureEnv.asset`);
+committed preset asset carrying today's `airgapped-settings.json` values; rewire
+`SettingsManager`'s baked branch from `TextAsset`+SimpleJSON to
+`Resources.Load<CaptureEnv>` seeding `SettingsState` (the `persistentDataPath`
+write-back chain stays untouched); delete `airgapped-settings.json`. Then: npm-pin the
+package; `build-config.json` with the class-path `environment_config` +
+`platforms["AndroidMobile"]`; migrate CI `--build-env CONFIG_TYPE=default` →
+`--environment`; catalog entry → the single executeMethod; generate the dispatch-wrapper
+workflow; delete `Assets/Editor/BuildScript.cs`; `compile-unity` local build; APK smoke
+(`aapt` versionName/Code vs the stamp); hand branch + SHA to operator.
 
-**Phase MIS — Make-it-Sing flip**: `build-config.json` with both presets + full `UnityEnv`
-field schema (transitional `config_mode` baking `Override`); both platforms with pipeline
-assets; `--build-env` migration; catalog → executeMethod; dispatch workflow; define
-renames in app code (`OUTERNET_*`); app refactor riding the flip (delete `ConfigMode` +
-`ResolveEffective`; `UnityEnvInspector` → stub opening the configure window; re-save
-canonical template assets); **delete `Assets/Settings/Build Profiles/Magic Leap 2.asset`
-(F19); delete the `Build > Configure` menu items and `BuildScript.cs`'s configure
-functions; rewire `CreateAssetBundles.cs` + `AssetBundleManagerWindow.cs` to the
-package's apply + verify (F15/F31)**; placeframe magicleap gate rename + republish
-ahead of the flip; F4 git-pin → npm migration; convergence method; Elliot smoke: Apply →
-native Build on both platforms, bake bundles on both platforms (through the rewired
-entry points), workspace round-trip.
+**Phase MIS — Make-it-Sing flip** (amended): `UnityEnv` gains two members —
+`public static readonly Dictionary<ConfigMode, string> Presets` (keys = door spellings;
+`airgapped`, not `air-gapped`) and `public const string TargetPath =
+"Assets/_LocalWorkspace/Resources/UnityEnv.asset"`; re-save both canonical presets (F21
+stale `room:` shape). **`ConfigMode` + `ResolveEffective` survive — no deletion** (owner
+reversal). **Delete `UnityEnvInspector.cs`** (subsumed — F34; stub fallback on record).
+Both platforms with pipeline assets; `--build-env` migration; catalog → executeMethod;
+dispatch workflow; define renames in app code (`OUTERNET_*`); delete
+`Assets/Settings/Build Profiles/Magic Leap 2.asset` (F19); delete the
+`Build > Configure` menu items and `BuildScript.cs`'s configure functions; **rewire
+`CreateAssetBundles.cs` + `AssetBundleManagerWindow.cs` to the package's apply + verify
+(F15/F31)**; placeframe magicleap gate rename + republish ahead of the flip; F4 git-pin →
+npm migration; convergence method; Elliot smoke: Apply → native Build on both platforms,
+bake bundles on both platforms (through the rewired entry points), workspace round-trip.
 
 **Phase C — cleanup**: fold load-bearing plan content into AGENTS.md; delete this plan
 (also in the folded home); delete placeframe's dead `BuildUtility`.
@@ -421,7 +626,7 @@ Then one `compile-unity` build; compare applied-config log lines and `BuildRepor
 No pushes from the sandbox — commit locally, hand branch + SHA to the operator. Prose and
 code in separate commits; subject under 72 chars; no trailers; no bypass flags. CSharpier
 120 cols; always-brace bodies; comments rare, self-contained. Never invoke
-`/opt/unity/.../Unity` directly — always the devkit verbs (ADB guard); until 0.1.12
-lands, the devkit-checkout venv vehicle (`/workspace/unity-devkit/.venv/bin/<verb>`, cwd
+`/opt/unity/.../Unity` directly — always the devkit verbs (ADB guard); until the Phase V
+release lands, the devkit-checkout venv vehicle (`/workspace/unity-devkit/.venv/bin/<verb>`, cwd
 at the target repo root). Never `gh run watch`. Keep `.gitignore` strict (`Library/`,
 `_LocalWorkspace/`).
