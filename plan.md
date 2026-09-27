@@ -146,6 +146,11 @@ one piece consumed, see below):
 - Gates: compile gate green post-swap; `unity-dispatch --check` green; full preflight green
   (the repo's uv `==0.12.15` pin tripped the sandbox's default 0.11.14 — toolchain-only,
   the repo AGENTS note's case; green under the newer uv).
+- Prose follow-up on record: CT's AGENTS still names the dead `compile-unity` verb (renamed
+  `build-unity` in 0.1.16) — rides the punt-lift PR; flagged, not fixed this session.
+
+devkit is 1 ahead of origin (this record) — operator push at leisure; it is prose-only and
+rides the next code push.
 
 **MIS fork ruling (owner, this session)**: Phase 7 executes on **`Make-it-Sing-fork`** — the
 owner forked MIS after enabling private-repo forking (org Settings → Member privileges; the
