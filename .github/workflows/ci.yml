@@ -48,4 +48,5 @@ jobs:
     uses: ./.github/workflows/unity-check.yml
     with:
       runner-labels: '["self-hosted","unity"]'
+      execute-method: Outernet.EnvironmentFixtureSelfTest.Run
     secrets: inherit

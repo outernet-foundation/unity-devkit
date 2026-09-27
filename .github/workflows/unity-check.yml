@@ -7,6 +7,10 @@ on:
         description: JSON-encoded runs-on value (string or array) for the license/check jobs
         type: string
         default: '"ubuntu-latest"'
+      execute-method:
+        description: Optional Class.Method run in a second check-unity session after the compile gate
+        type: string
+        default: ''
     secrets:
       UNITY_EMAIL:
         required: true
@@ -56,3 +60,7 @@ jobs:
 
       - name: Compile check
         run: uv run --no-sync check-unity --project ${{ matrix.project-name }}
+
+      - name: Execute method
+        if: ${{ inputs.execute-method != '' }}
+        run: uv run --no-sync check-unity --project ${{ matrix.project-name }} --execute-method ${{ inputs.execute-method }}
