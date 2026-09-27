@@ -44,3 +44,17 @@ def test_matrix_fails_without_builds(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     with pytest.raises(SystemExit, match="No projects with builds declared"):
         matrix.main()
+
+
+def test_check_matrix_includes_path_only_projects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_repository(tmp_path, {"path": "apps/Tool"})
+    monkeypatch.chdir(tmp_path)
+
+    matrix.check_matrix()
+
+    lines = capsys.readouterr().out.splitlines()
+    include = json.loads(lines[0][len("matrix=") :])["include"]
+    assert include == [{"project-name": "tool", "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3"}]
+    assert lines[1] == "license-image=unityci/editor:6000.0.66f1-linux-il2cpp-3"

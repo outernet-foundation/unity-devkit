@@ -42,18 +42,7 @@ jobs:
         run: uvx --from release-devkit==0.1.14 publish-stable --config release-devkit.json --dry-run
 
   compile-check:
-    runs-on: ["self-hosted", "unity"]
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Sync venv
-        run: uv sync
-
-      - name: Compile check
-        run: uv run --no-sync check-unity --project PlayerBuild
+    uses: ./.github/workflows/unity-check.yml
+    with:
+      runner-labels: '["self-hosted","unity"]'
+    secrets: inherit

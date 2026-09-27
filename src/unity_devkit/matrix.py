@@ -33,3 +33,20 @@ def main() -> None:
     license_version = max(editor_versions)
     print(f"matrix={json.dumps({'include': matrix})}")
     print(f"license-image=unityci/editor:{license_version}-{LICENSE_MODULE}-{UNITYCI_IMAGE_REVISION}")
+
+
+def check_matrix() -> None:
+    projects = load_catalog()
+    matrix: list[dict[str, str]] = []
+    editor_versions: set[str] = set()
+
+    for name, project in projects.items():
+        version = read_editor_version(project.path)
+        editor_versions.add(version)
+        matrix.append({
+            "project-name": name,
+            "editor-image": f"unityci/editor:{version}-{LICENSE_MODULE}-{UNITYCI_IMAGE_REVISION}",
+        })
+
+    print(f"matrix={json.dumps({'include': matrix})}")
+    print(f"license-image=unityci/editor:{max(editor_versions)}-{LICENSE_MODULE}-{UNITYCI_IMAGE_REVISION}")
