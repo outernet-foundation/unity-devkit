@@ -172,15 +172,18 @@ ledger). CT's gated remainder then rides the release: CI `--environment-preset` 
 fix, npm pin swap for the local `file:` pin, dispatch workflow generation + drift gate, APK smoke, the
 Phase 1 acceptance probe. Phase 6's flip list otherwise unchanged.
 
-Pinned for the next session (owner-approved, deliberately not executed at close): rename `dispatch.py`
-→ `dispatch_generator.py` — the current name reads as a message/event dispatcher; the file is the
-dispatch-workflow generator, and "dispatch generator" is this plan's own vocabulary throughout. Verb
-stays `unity-dispatch`; entry point becomes `unity_devkit.dispatch_generator:app`; pyproject script
-line, AGENTS table row, and the session-record mentions follow. Zero behavior change; do it before the
-operator push freezes nothing (module paths aren't pinned API), but it rides the same release for
-tidiness.
+Pinned rename executed this session, name amended past the pin by the owner: `dispatch.py` →
+`dispatch_workflow_generator.py` — `dispatch_generator` was judged insufficient (dispatch of what?)
+and `github_workflow_dispatch_input_yml_generator` correct but unwieldy; the landed name is the
+maximal compression keeping the load-bearing words — workflow (the artifact kind), dispatch (the
+panel variant), generator (the role) — and dropping the redundant ones (github: the devkit is
+GitHub-native; yml: workflows are YAML by definition; input: implied by a dispatch workflow). Verb
+stays `unity-dispatch`; entry point is `unity_devkit.dispatch_workflow_generator:app`; pyproject
+script line, AGENTS table row, and the test module (`test_dispatch_workflow_generator.py`, the
+`test_<module>` mirror) followed. Zero behavior change; module paths aren't pinned API, and it rides
+the same release for tidiness.
 
-Next session: the pinned rename first, then verify the operator pushed and the release landed
+Next session (updated after the rename landed): verify the operator pushed and the release landed
 (both registries), then CT's gated remainder per Phase 6.
 
 ## Status (2026-09-27, session 8 close — pane NRE root-caused and fixed)
