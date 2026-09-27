@@ -13,13 +13,26 @@ COMPILE_ERROR_SIGNATURES = ("error CS",)
 @app.command()
 def check_unity(
     project: Annotated[str, typer.Option(help="Unity project name (catalog key in unity-devkit.json)")],
+    execute_method: Annotated[
+        str | None,
+        typer.Option(help="Static method to run after load (Class.Method) — one editor session per invocation"),
+    ] = None,
+    build_target: Annotated[
+        str | None,
+        typer.Option(help="Startup build target (e.g. Android) for sessions that must open on a non-default platform"),
+    ] = None,
 ) -> None:
     projects = load_catalog()
     if project not in projects:
         raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
 
     project_path = projects[project].path
+    extra_flags = ""
+    if build_target:
+        extra_flags += f" -buildTarget {build_target}"
+    if execute_method:
+        extra_flags += f" -executeMethod {execute_method}"
     print(f"Compile-checking {project}...")
     prepare_unity_project(project_path)
-    run_unity_batchmode(project_path, extra_failure_signatures=COMPILE_ERROR_SIGNATURES)
+    run_unity_batchmode(project_path, extra_flags, extra_failure_signatures=COMPILE_ERROR_SIGNATURES)
     print("  Compiles clean")
