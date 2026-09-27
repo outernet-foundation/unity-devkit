@@ -9,7 +9,7 @@ namespace Outernet
     {
         public static void Run()
         {
-            Environment.SetEnvironmentVariable("ENVIRONMENT_CLASS", "Assets/Editor/FixtureEnv.cs");
+            Environment.SetEnvironmentVariable("ENVIRONMENT_CONFIG_CLASS", "Assets/Editor/FixtureEnv.cs");
             Environment.SetEnvironmentVariable("ENVIRONMENT", "airgapped");
             Environment.SetEnvironmentVariable(
                 "ENVIRONMENT_FIELDS",
@@ -17,7 +17,7 @@ namespace Outernet
                     + "\"capabilities\": \"Capture, Stream\", \"localConfig.apiUrl\": \"https://fixture.local\", "
                     + "\"localConfig.portNumber\": \"8443\"}"
             );
-            string classPath = Environment.GetEnvironmentVariable("ENVIRONMENT_CLASS")!;
+            string classPath = Environment.GetEnvironmentVariable("ENVIRONMENT_CONFIG_CLASS")!;
             string environment = Environment.GetEnvironmentVariable("ENVIRONMENT")!;
             Dictionary<string, string> fields = PlayerBuild.ReadEnvironmentFields();
             EnvironmentConfig.DumpEnvironment();

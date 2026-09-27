@@ -31,11 +31,12 @@ namespace Outernet
         public static void DumpEnvironment()
         {
             string classPath =
-                Environment.GetEnvironmentVariable("ENVIRONMENT_CLASS") ?? PlayerBuild.LoadConfig().EnvironmentConfig;
+                Environment.GetEnvironmentVariable("ENVIRONMENT_CONFIG_CLASS")
+                ?? PlayerBuild.LoadConfig().EnvironmentConfig;
             if (classPath.Length == 0)
             {
                 throw new BuildFailedException(
-                    "No environment class — set build-config.json 'environment_config' or the ENVIRONMENT_CLASS env var"
+                    "No environment class — set build-config.json 'environment_config' or the ENVIRONMENT_CONFIG_CLASS env var"
                 );
             }
 
