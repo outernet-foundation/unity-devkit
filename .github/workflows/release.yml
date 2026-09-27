@@ -32,4 +32,4 @@ jobs:
           # npm decides in silence whether to attempt the OIDC exchange; without verbose a trusted-publisher
           # mismatch surfaces as a bare ENEEDAUTH indistinguishable from a missing token
           NPM_CONFIG_LOGLEVEL: verbose
-        run: uvx --from release-devkit==0.1.14 publish-stable --config release-devkit.json
+        run: uvx --from release-devkit==0.1.17 publish-stable --config release-devkit.json
