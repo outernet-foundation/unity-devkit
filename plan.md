@@ -81,33 +81,39 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
-## Status (2026-09-27, session 8 close — pane NRE instrumented, repro gone)
+## Status (2026-09-27, session 8 close — pane NRE root-caused and fixed)
 
-Owner smoke of the CT window found a live bug: after clicking Apply (which writes the table
-defines → script recompile → domain reload), the environment pane renders
-`NullReferenceException: Object reference not set to an instance of an object` persistently
-where the pane belongs. The pane's catch had rendered type+message inline with no console log
-(an anti-spam choice) — diagnosability defect fixed in `ecce7ca`: the catch now also
-`Debug.LogException`s the full stack whenever the error text differs from the previous frame's
-(recurrence of an identical text stays silent — no re-log-on-heal machinery; accepted). Gates:
-CSharpier, `check-unity` green; CT picks it up automatically through the in-place `file:` pin
-on its next package recompile.
+Owner smoke found a live bug: after clicking Apply, the environment pane rendered
+`NullReferenceException: Object reference not set to an instance of an object`. First the
+catch had rendered type+message with no console log (anti-spam choice) — fixed in `ecce7ca`:
+the pane's catch also `Debug.LogException`s the full stack whenever the error text differs
+from the previous frame's. The owner then landed a full repro with stacks, pinning it:
 
-Diagnosis state: on-disk evidence is all healthy (preset copy valid with matching script GUID,
-mode `Airgapped`, platform record written by the owner's two Apply clicks — both
-`development: true`, identical facts, hence a single ProjectSettings write at 14:58:03 and a
-second platform.json write at 14:59). Static walk of every pane line against that state finds
-no null path — the throw depends on transient post-reload editor state. Leading suspects:
-`MonoScript.GetClass()` returning null during/after the define-triggered recompile (the ctor's
-`!` operators turn that into a bare NRE — the session-4 "loud inscrutable BCL" ruling taken
-literally), or the no-live-asset popup path (`Popup(-1)`). **Owner repro attempt after the
-instrumentation landed came up clean — the NRE did not reappear** (consistent with a transient
-post-reload state that the package recompile itself cleared). The bug is unexplained but
-non-reproducing; no stack will be forthcoming. The instrumentation stays permanently (owner
-directive: pane exceptions must log with stack); if the NRE ever returns, the console entry
-names the line and the fix follows. Treat the NRE as closed-unless-it-returns. The window's
-Apply UX is otherwise proven: preset pick through the popup, copy, mode travel, and both Apply
-clicks all worked in the owner's editor.
+- The trigger: the platform dropdown offers every table name; picking **MagicLeap2** in CT
+  (whose config declares only AndroidMobile) and clicking Apply runs `ApplyPlatformFacts`
+  first — writing the MAGIC_LEAP defines, which schedules an asset-database refresh + script
+  recompile — then `PlatformFor` throws `BuildFailedException` (undeclared platform), which
+  escaped `OnGUI` raw (console IMGUI error, window pattern broken).
+- The NRE: during the refresh window, the pane's per-frame
+  `AssetDatabase.LoadAssetAtPath` icall throws NRE **from native code mid-refresh** — the
+  managed stack shows only the calling line, which is why it looked like our null deref.
+  Transient by nature; heals when the refresh settles (matching both owner episodes,
+  including the one that "went away on its own").
+
+Fixes (`b7b77fd`, CSharpier + `check-unity` + env self-test green): the pane early-outs while
+`EditorApplication.isCompiling || isUpdating` (no AssetDatabase calls from OnGUI during
+refresh windows — kills the NRE at its trigger); `EnvironmentConfig`'s ctor guards its two
+`!`-null cases with explanatory `BuildFailedException`s (missing script; script resolving no
+class — amends the session-4 "no guard blocks" ruling for exactly these two cases, which the
+window hit as bare NREs in normal operation; the `Single()` malformations stay
+inscrutable-by-ruling); the Apply button's failure renders as the window's error box via
+`ApplyFromGui` (try-owning helper, the `LoadConfigForGui` pattern) instead of throwing
+through OnGUI.
+
+**Open design question for the owner**: the platform dropdown lists all `Platform.Names()`,
+so CT's window offers MagicLeap2 its config never declares — the repro's underlying trap.
+Options: filter the dropdown to `config.Platforms.Keys` (config is the declared intent; the
+table stays vocabulary) or keep it vocabulary-wide with the in-window error as the guard.
 
 ## Status (2026-09-27, session 7 close — CT Unity flip pulled ahead of Phase 5)
 
