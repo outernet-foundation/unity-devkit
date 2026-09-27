@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from unity_devkit.dispatch import (
+from unity_devkit.dispatch_workflow_generator import (
     EnvironmentDump,
     EnvironmentFieldDump,
     extract_environment_dump,

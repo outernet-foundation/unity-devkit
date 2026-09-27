@@ -21,7 +21,7 @@ lock-unity = "unity_devkit.lock_unity:app"
 test-unity = "unity_devkit.test_unity:app"
 unity-license-tag = "unity_devkit.license_restore:tag_app"
 unity-check-matrix = "unity_devkit.matrix:check_matrix"
-unity-dispatch = "unity_devkit.dispatch:app"
+unity-dispatch = "unity_devkit.dispatch_workflow_generator:app"
 unity-matrix = "unity_devkit.matrix:main"
 
 [build-system]
