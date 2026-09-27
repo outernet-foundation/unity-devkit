@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEngine;
 
 namespace Outernet
@@ -52,7 +53,22 @@ namespace Outernet
 
         public EnvironmentConfig(string classPath)
         {
-            ClassType = AssetDatabase.LoadAssetAtPath<MonoScript>(classPath)!.GetClass()!;
+            MonoScript script = AssetDatabase.LoadAssetAtPath<MonoScript>(classPath);
+            if (script == null)
+            {
+                throw new BuildFailedException(
+                    $"No environment class script at '{classPath}' — check build-config.json 'environment_config'"
+                );
+            }
+
+            ClassType = script.GetClass();
+            if (ClassType == null)
+            {
+                throw new BuildFailedException(
+                    $"The script at '{classPath}' resolves no class — the file must be named for the class it declares"
+                );
+            }
+
             FieldInfo[] staticFields = ClassType.GetFields(BindingFlags.Public | BindingFlags.Static);
             FieldInfo presetsField = staticFields.Single(field => field.Name == "Presets");
             Type dictionaryInterface = presetsField.FieldType.GetInterface("System.Collections.Generic.IDictionary`2");

@@ -37,13 +37,7 @@ namespace Outernet
             EditorGUILayout.LabelField("Last applied", DescribeAppliedRecord());
             if (GUILayout.Button("Apply", GUILayout.Height(EditorGUIUtility.singleLineHeight * 1.5f)))
             {
-                PlayerBuild.Apply(
-                    Platform.Find(names[platformIndex]),
-                    development,
-                    config,
-                    "",
-                    new Dictionary<string, string>()
-                );
+                ApplyFromGui(names[platformIndex], development, config);
             }
         }
 
@@ -62,7 +56,7 @@ namespace Outernet
 
         private void DrawEnvironmentPane(BuildConfig config)
         {
-            if (config.EnvironmentConfig.Length == 0)
+            if (config.EnvironmentConfig.Length == 0 || EditorApplication.isCompiling || EditorApplication.isUpdating)
             {
                 return;
             }
@@ -181,6 +175,24 @@ namespace Outernet
                 }
 
                 lastPaneError = detail;
+            }
+        }
+
+        private static void ApplyFromGui(string platformName, bool development, BuildConfig config)
+        {
+            try
+            {
+                PlayerBuild.Apply(
+                    Platform.Find(platformName),
+                    development,
+                    config,
+                    "",
+                    new Dictionary<string, string>()
+                );
+            }
+            catch (BuildFailedException error)
+            {
+                EditorGUILayout.HelpBox(error.Message, MessageType.Error);
             }
         }
 
