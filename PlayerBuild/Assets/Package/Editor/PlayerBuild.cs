@@ -299,10 +299,10 @@ namespace Outernet
 
             foreach (KeyValuePair<string, string> entry in fields)
             {
-                EnvironmentFieldLeaf leaf = environmentConfig.Fields.FirstOrDefault(candidate =>
+                EnvironmentField field = environmentConfig.Fields.FirstOrDefault(candidate =>
                     candidate.Path == entry.Key
                 );
-                if (leaf == null)
+                if (field == null)
                 {
                     throw new BuildFailedException(
                         $"Unknown environment field '{entry.Key}' (declared: {string.Join(", ", environmentConfig.Fields.Select(candidate => candidate.Path))})"
@@ -317,13 +317,17 @@ namespace Outernet
                     );
                 }
 
-                if (leaf.FieldType.IsEnum)
+                if (field.FieldType.IsEnum)
                 {
-                    property.intValue = (int)Convert.ToInt64(Enum.Parse(leaf.FieldType, entry.Value, true));
+                    property.intValue = (int)Convert.ToInt64(Enum.Parse(field.FieldType, entry.Value, true));
                 }
                 else
                 {
-                    property.boxedValue = Convert.ChangeType(entry.Value, leaf.FieldType, CultureInfo.InvariantCulture);
+                    property.boxedValue = Convert.ChangeType(
+                        entry.Value,
+                        field.FieldType,
+                        CultureInfo.InvariantCulture
+                    );
                 }
             }
 

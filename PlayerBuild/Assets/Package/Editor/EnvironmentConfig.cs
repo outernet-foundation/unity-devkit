@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Outernet
 {
-    public sealed class EnvironmentFieldLeaf
+    public sealed class EnvironmentField
     {
         public string Path = "";
         public Type FieldType = null!;
@@ -22,7 +22,7 @@ namespace Outernet
         public string ModeFieldName = "";
         public string TargetPath = "";
         public Dictionary<string, string> Presets = new(StringComparer.OrdinalIgnoreCase);
-        public List<EnvironmentFieldLeaf> Fields = new();
+        public List<EnvironmentField> Fields = new();
 
         public void Dump()
         {
@@ -35,8 +35,8 @@ namespace Outernet
                         target_path = TargetPath,
                         presets = Presets,
                         enums = Fields
-                            .Where(leaf => leaf.FieldType.IsEnum)
-                            .Select(leaf => leaf.FieldType)
+                            .Where(field => field.FieldType.IsEnum)
+                            .Select(field => field.FieldType)
                             .Distinct()
                             .Select(type => new
                             {
@@ -44,7 +44,7 @@ namespace Outernet
                                 values = Enum.GetNames(type),
                                 flags = type.IsDefined(typeof(FlagsAttribute), false),
                             }),
-                        fields = Fields.Select(leaf => new { path = leaf.Path, field_type = leaf.FieldType.Name }),
+                        fields = Fields.Select(field => new { path = field.Path, field_type = field.FieldType.Name }),
                     }
                 )
             );
@@ -75,14 +75,10 @@ namespace Outernet
                 .GetFields(BindingFlags.Public | BindingFlags.Instance)
                 .Single(field => field.FieldType == ModeEnumType)
                 .Name;
-            CollectEnvironmentLeaves(ClassType, "", Fields);
+            CollectEnvironmentFields(ClassType, "", Fields);
         }
 
-        private static void CollectEnvironmentLeaves(
-            Type declaringType,
-            string prefix,
-            List<EnvironmentFieldLeaf> leaves
-        )
+        private static void CollectEnvironmentFields(Type declaringType, string prefix, List<EnvironmentField> fields)
         {
             foreach (FieldInfo field in declaringType.GetFields(BindingFlags.Public | BindingFlags.Instance))
             {
@@ -90,7 +86,7 @@ namespace Outernet
                 string path = prefix.Length == 0 ? field.Name : $"{prefix}.{field.Name}";
                 if (fieldType.IsPrimitive || fieldType == typeof(string) || fieldType.IsEnum)
                 {
-                    leaves.Add(new EnvironmentFieldLeaf { Path = path, FieldType = fieldType });
+                    fields.Add(new EnvironmentField { Path = path, FieldType = fieldType });
                     continue;
                 }
 
@@ -103,7 +99,7 @@ namespace Outernet
                     continue;
                 }
 
-                CollectEnvironmentLeaves(fieldType, path, leaves);
+                CollectEnvironmentFields(fieldType, path, fields);
             }
         }
     }
