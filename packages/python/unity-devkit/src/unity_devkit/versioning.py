@@ -4,13 +4,9 @@ from pathlib import Path
 
 def stamp_build_version(project_path: Path, version: str, run_number: int) -> str:
     settings_path = project_path / "ProjectSettings" / "ProjectSettings.asset"
-    rewritten = replace_serialized_field(
-        replace_serialized_field(
-            settings_path.read_text(encoding="utf-8"), "AndroidBundleVersionCode", str(run_number)
-        ),
-        "bundleVersion",
-        version,
-    )
+    rewritten = settings_path.read_text(encoding="utf-8")
+    rewritten = replace_serialized_field(rewritten, "AndroidBundleVersionCode", str(run_number))
+    rewritten = replace_serialized_field(rewritten, "bundleVersion", version)
     settings_path.write_text(rewritten, encoding="utf-8")
     return version
 
