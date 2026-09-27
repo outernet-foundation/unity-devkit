@@ -14,6 +14,7 @@ namespace Outernet
         private EnvironmentConfig environmentConfig = null!;
         private string environmentClassPath = "";
         private SerializedObject environmentAsset = null!;
+        private string lastPaneError = "";
 
         [MenuItem("Window/Player Build")]
         public static void ShowWindow()
@@ -172,7 +173,14 @@ namespace Outernet
             }
             catch (Exception error)
             {
-                EditorGUILayout.HelpBox($"{error.GetType().Name}: {error.Message}", MessageType.Error);
+                string detail = $"{error.GetType().Name}: {error.Message}";
+                EditorGUILayout.HelpBox(detail, MessageType.Error);
+                if (detail != lastPaneError)
+                {
+                    Debug.LogException(error);
+                }
+
+                lastPaneError = detail;
             }
         }
 
