@@ -81,6 +81,66 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 9 close — Phase 5 complete)
+
+Phase 5 executed in full: the Python half plus the release preparation. Landed:
+
+- **Transport + child-env control.** `run_unity_batchmode` grew an `env` parameter (a bashrun overlay — never
+  `os.environ` mutation) and now returns the captured log path. `unity.py` gained
+  `parse_environment_fields` (newline/repeatable `path=value` → dict, split on first `=`, loud on bare
+  paths) and `child_environment` (builds the entry contract: `PLATFORM`, `DEVELOPMENT` always,
+  `ENVIRONMENT`/`ENVIRONMENT_FIELDS` only when non-empty — unset stays ambient no-op). Build names map to
+  playerbuild platform names via `playerbuild_platform` in `PLATFORM_CONFIGS` (`android-mobile` →
+  `AndroidMobile`, `magicleap` → `MagicLeap2`; `linux64`/`win64` carry `""` — their execute methods are
+  consumer-owned). `resolve_unity_build` returns the 4-tuple including the platform name.
+- **Doors.** `compile-unity`: `--development` bool flag, `--environment <preset>`, repeatable
+  `--environment-field path=value` (the plan's CLI spelling). `build-unity`: `--environment`,
+  `--development` (validated `'true'`/`'false'` string — workflow booleans arrive as strings; the two
+  doors' skins differ, the transport spelling is one), `--environment-fields` (newline `path=value` — the
+  shape the generated dispatch workflow emits). `--build-env` and its KEY=VALUE loop are deleted.
+- **`unity-build.yml`**: `build-env` input replaced by `environment`/`development`/`environment-fields`
+  (repo-agnostic — per-field inputs live only in the consumer's generated wrapper). Known consequence on
+  record: CT's unpushed ci.yml still passes `build-env:` and will error against the new input surface
+  until its Phase 6 remainder migrates — expected; that work is gated on this release anyway.
+- **`unity-dispatch`** (new verb, `dispatch.py`): runs the dump door
+  (`Outernet.PlayerBuild.DumpEnvironment`, class pointer from `--environment-class` or the project's
+  `build-config.json`), extracts the payload structurally (log line parsing as a JSON object with
+  `class_name` — no magic-string coupling), validates into a forbid-extra pydantic model, renders static
+  YAML: preset choice (leading empty option = unset = ambient no-op) + development boolean + one input
+  per simple-typed field — bool → checkbox, non-flags enum → choice (empty option first), flags enum →
+  comma-separated text, string/number → text; the mode field dedupes into the preset choice; field input
+  ids are dot→dashed and referenced with bracket notation (`inputs['localConfig-apiUrl']` — dotted ids
+  would parse as property access minus). Loud past the 25-input cap and on unknown field types.
+  `--check` regenerates and diffs — the F20 drift gate for consumer CI. The transport forwards only
+  non-empty inputs (per-field `inputs['id'] != '' && format('path={0}', …) || ''` lines); boolean fields
+  transport only when checked (checkbox = opt-in override; forcing false goes through the CLI door).
+- **Tests** (43, up from 27): generator render assertions (dedup, type mapping, bracket refs, transport
+  lines, cap, unknown type, determinism, YAML validity via pyyaml — added to the root dev group,
+  test-only), extraction, field parse, child-env contract, and the 4-tuple resolve. The fixture dump
+  JSON is committed at `tests/fixtures/environment-dump.json` — captured live this session from the real
+  door against `FixtureEnv` (6000.0.66f1), not hand-written.
+
+Proven live in this sandbox, not just by tests: the dump door through `check-unity` with
+`ENVIRONMENT_CONFIG_CLASS` inherited by the child; `unity-dispatch` end-to-end against the harness
+(generated workflow eyeballed: choice/checkbox/number/flags rows, dedup, `${{ }}` expressions intact —
+an f-string collapsing `{{`→`{` was caught and fixed by rendering transport lines through
+concatenation); `--check` green on the same file, red on a one-line drift. Gates: ruff, basedpyright,
+pytest 43, `check-unity` compile + env self-test green, CSharpier clean (no C# deltas — Python-only
+phase). Docs: AGENTS.md gained the `unity-dispatch`/`build-unity` rows and the environment-transport
+constraint; README command catalog updated.
+
+Open arithmetic, flagged not fixed: §Environment model's panel budget line says "19 fields + 3 controls
+= 22 of 25" for MIS, but the generator emits 2 controls (preset choice + development toggle) — MIS
+would count 21. No third control is derivable from the panel rules; if the owner has one in mind
+(runner-labels passthrough, platform selector), it is one input away.
+
+The release (one devkit release carrying both registries) rides the operator push: 31 commits local on
+main (29 prior, plus the owner's mid-session `b7b77fd`/`2559e0a` window-fix pair) → push → CI → `release.yml` publishes PyPI `unity-devkit` + npm `org.outernet.playerbuild` (path-
+diff covers `packages/python/unity-devkit`; the hosted workflow edits ride the SHA pin, not a ledger).
+CT's gated remainder then rides the release: CI `--environment` migration + ci.yml input fix, npm pin
+swap for the local `file:` pin, dispatch workflow generation + drift gate, APK smoke, the Phase 1
+acceptance probe. Phase 6's flip list otherwise unchanged.
+
 ## Status (2026-09-27, session 8 close — pane NRE root-caused and fixed)
 
 Owner smoke found a live bug: after clicking Apply, the environment pane rendered

@@ -16,7 +16,7 @@ Run from a repo root with a `unity-devkit.json` catalog declaring its Unity proj
 
 | `uv run <name>` | What it does |
 |---|---|
-| `compile-unity --project <name> --build <target>` | Local Unity build (APK or platform binary) suitable for `adb install`; `--stamp-version` stamps the version into `ProjectSettings.asset`. |
+| `compile-unity --project <name> --build <target>` | Local Unity build (APK or platform binary) suitable for `adb install`; `--stamp-version` stamps the version into `ProjectSettings.asset`; `--development`, `--environment <preset>`, and repeatable `--environment-field path=value` carry environment intent to the playerbuild entry. |
 | `check-unity --project <name>` | Compile gate — batchmode open+quit that fails on compile errors; for repos that own editor code but build no players. |
 | `install --project <name>` | Download the latest CI artifact and `adb install` (or launch, for `linux64`); with `--build`, compile locally first. |
 | `lock-unity` | Lock Unity package versions. |
@@ -24,6 +24,7 @@ Run from a repo root with a `unity-devkit.json` catalog declaring its Unity proj
 | `activate-unity-license` | Activate the Unity Editor license (locally or with `--oras-push`). |
 | `unity-license-tag` | Print the license cache tag. |
 | `unity-matrix` | Emit the CI build matrix (CI-only; two `key=value` lines for `$GITHUB_OUTPUT`). |
+| `unity-dispatch --project <name> --output <file>` | Generate the consumer's `workflow_dispatch` build workflow from the live environment class (preset choice, development toggle, one input per simple-typed field); `--check` is the drift gate for consumer CI. |
 | `build-unity` | CI build with library-cache restore/save and version stamping (CI-only). |
 
 Every command accepts `--help`.
