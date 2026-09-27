@@ -81,6 +81,87 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 13 close — the dual-registry release landed; CT Phase 6 remainder executed)
+
+The pending releases landed, then CT's gated remainder executed against them. En-route facts,
+all fixed same-session:
+
+- **release-devkit `0.1.17` live on PyPI** (carrying `app-build-version` — CT's session-10 pin
+  presumption confirmed exact). Two CI failures fixed on the way: `ruff format` drift in the
+  verb's test file (the session-10 "green" record had covered `ruff check` but not
+  `--check`-format), and four CI-naive tests asserting the `-dev` spelling while a runner
+  exports `GITHUB_REF_NAME=main` ambient into `CliRunner` — fixed with per-test
+  `monkeypatch.delenv`; verified by running the suite under a simulated runner env, the
+  compensation class for sandbox certification generally (a sandbox cannot reproduce runner
+  ambient).
+- **unity-devkit `0.1.16` (PyPI) + playerbuild `0.1.1` (npm) live** — the npm CI channel's
+  first end-to-end success. Two novel failures fixed: PyPI/CDN index lag right after upload
+  (manifest-job resolution failed on a 2.5-minute-old release; re-run, transient by class),
+  and npm provenance verification rejecting the publish because the package manifest carried
+  no `repository` field (`422 … expected to match "https://github.com/outernet-foundation/
+  unity-devkit" from provenance`) — fixed by declaring `repository` (url + directory) in the
+  package's package.json (`3bada70`). The provenance failure could only surface after the
+  version-conflict layer stopped firing; manual publishes (0.1.0) never do provenance. A
+  partial-release state (PyPI published, no tags — the run died mid-publish) self-healed on
+  the next release via the idempotency skip absorbing the PyPI republish: the burn-era
+  machinery working as designed.
+- devkit's workflow pins ride `release-devkit==0.1.17` (`4c590d3`), activating the npm-11
+  idempotency fix for its own npm publish.
+
+CT remainder, executed on its unpushed dev stack (now 11 ahead; known dirt untouched —
+one piece consumed, see below):
+
+- **npm pin swap** (`6421c7d`): manifest `file:` pin → `org.outernet.playerbuild@0.1.1` via
+  the existing `npmjs` scoped registry; `lock-unity` regenerated the lock from the registry;
+  compile gate green against the npm-resolved package. CT's dev-group devkit pin rode up to
+  0.1.16 in the same commit (the lock held 0.1.14; the new verb names require it).
+- **Dispatch workflow** (`9aa00a0`): `unity-dispatch` generated `.github/workflows/
+  build-dispatch.yml` from the live `CaptureEnv` (preset choice Airgapped + development +
+  three field inputs, mode deduped, bracket refs, `uses:` pinned to CT's existing
+  `build-unity.yml@08d5378…`); `--check` proven byte-stable locally. **Design gap on record**:
+  the CI drift gate needs an editor for the dump door, CT's check job is editor-less
+  ubuntu-latest, and consumers may not use `prepare-unity.yml`/`unity-container-prep`
+  directly — the sanctioned CI home for a consumer drift gate does not exist yet. Correct
+  shape: a hosted-workflow-family addition (devkit side, next release). Interim: local
+  `--check` is the manual gate.
+- **APK smoke — the version-input path proven end-to-end in one artifact**: `app-build-version`
+  (`0.0.0-dev+999`, no tags + off-main spelling, opaque to the stamper) → `build-unity
+  --version … --run-number 999` → ProjectSettings stamp → Entry apply+build →
+  `aapt dump badging`: `versionName='0.0.0-dev+999'`, `versionCode='999'`. The boundary law
+  (WHAT=release-devkit, HOW=devkit stamping, TRANSPORT=the workflow input) validated live.
+- **Phase 1 acceptance probe, resolved to its architecture-permitted extent**: the real APK
+  build's log carries `[playerbuild] effective values verified` inside
+  `BuildPipeline.BuildPlayer` — the preprocessor hook is proven live and passing. The failure
+  branch ("run Apply") is unreachable from every batchmode door by construction: the entry
+  applies before building, and every verify input except scenes is apply-written (scenes
+  self-compare when no profile snapshot exists). It needs the native editor Build window —
+  owner-side smoke, folded into the Phase 7 Elliot smoke. The harness cannot host it (no
+  `build-config.json`); the sandbox extends the same reason (no non-applying player-build
+  door exists in batchmode).
+- Incidental proof of the convergence claim: the entry build's XR sweep consumed CT's
+  long-dirty `XRGeneralSettingsPerBuildTarget.asset`, rewriting it to content identical to
+  HEAD — stale state converging to the committed canonical truth. CT's remaining known dirt
+  (`ProjectSettings.asset` architecture/graphics lines, `EditorBuildSettings`,
+  `PackageManagerSettings`, `extraction-plan.md`) untouched as found.
+- Gates: compile gate green post-swap; `unity-dispatch --check` green; full preflight green
+  (the repo's uv `==0.12.15` pin tripped the sandbox's default 0.11.14 — toolchain-only,
+  the repo AGENTS note's case; green under the newer uv).
+
+**MIS fork ruling (owner, this session)**: Phase 7 executes on **`Make-it-Sing-fork`** — the
+owner forked MIS after enabling private-repo forking (org Settings → Member privileges; the
+repo-level checkbox un-greys only after the org flip — GitHub's documented default disallows
+private-repo forking). Motivation: true default-branch E2E (release-spelling versions via
+`GITHUB_REF_NAME=main`, workflow_run Releases) that MIS's main cannot host under the
+consumer-push punt; the work lands back per the one-PR-per-repo consolidation, unchanged.
+Fork transfer costs on record as the checklist: repo secrets re-add (`UNITY_*`), self-hosted
+unity runners scoped to the fork, ORAS license cache re-push (fork's token cannot read the
+org namespace), fork token's read-only default flipped to write. Known first-red on the
+fork: ci.yml's `build-env: CONFIG_TYPE=…` is dead input against the pinned new workflow
+surface — the Phase 7 migration is the first work item, not a surprise.
+
+Next session: **Phase 7 on the fork** per the amended phase below; the devkit-side drift-gate
+hosted-workflow growth is queued behind it (or rides the next devkit release).
+
 ## Status (2026-09-27, session 12 close — unity.py consolidation + build-core inlines)
 
 Owner-directed follow-on to session 11: `unity.py` and `player_build.py` consolidated into one
@@ -1280,7 +1361,10 @@ workflow; delete `Assets/Editor/BuildScript.cs`; `compile-unity` local build; AP
 failure; the harness cannot host it — no `build-config.json` by design); hand branch +
 SHA to operator.
 
-**Phase 7 — Make-it-Sing flip** (old Phase MIS; amended): `UnityEnv` gains two members —
+**Phase 7 — Make-it-Sing flip** (old Phase MIS; amended): **executes on `Make-it-Sing-fork`**
+(session-13 ruling) — the flip lands and is smoke-tested E2E on the fork's default branch,
+then returns to MIS per the punt's one-PR consolidation; all items below are unchanged.
+`UnityEnv` gains two members —
 `public static readonly Dictionary<ConfigMode, string> Presets` (keys = door spellings;
 `airgapped`, not `air-gapped`) and `public const string TargetPath =
 "Assets/_LocalWorkspace/Resources/UnityEnv.asset"`; re-save both canonical presets (F21
