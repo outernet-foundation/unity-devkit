@@ -81,6 +81,57 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 12 close — unity.py consolidation + build-core inlines)
+
+Owner-directed follow-on to session 11: `unity.py` and `player_build.py` consolidated into one
+file, then an aggressive-inlining audit applied to the result. The consolidation rationale on
+record: `player_build.py`'s only importers (both doors, `install.py`) already imported from
+`unity.py`; the earlier "mechanism vs orchestration" layering was aesthetic, not contractual;
+the C# prior art (`PlayerBuild.cs` holds vocabulary + orchestrator + apply family in one
+document) maps to `unity.py` as the Unity layer's single document. Merge direction forced by
+the cross-repo surface: prepo imports `unity_devkit.unity.editor_version` +
+`find_editor_for_version`, so `player_build` folded into `unity.py` — never the reverse.
+
+The audit (callsite census: production excl. intra-module, tests, cross-repo) and its executed
+rulings:
+- **Inlined** `unity_batchmode_command` into `run_unity_batchmode` (single production caller;
+  composition — editor lookup, `xvfb-run` wrap, `env -u ADB_SERVER_SOCKET`, flags — is now part
+  of the runner). Test seam moved down a level: the four runner tests monkeypatch
+  `read_editor_version` + `find_editor_for_version` (functools.partial, no closures) onto a fake
+  editor script, so the real command composition now executes against the fake where the old
+  seam bypassed it.
+- **Inlined** `resolve_unity_build` into `build_player` (single production caller since the CI
+  door moved to `resolve_unity_project`): the head of `build_player` is now
+  `resolve_unity_project(...)` + the three inline guards (no builds / unknown build / no
+  platform config) + the `build_target` lookup. `test_resolve.py`'s cases ported onto the
+  harness (`test_build_player.py`), gaining a fourth failure mode (build outside
+  `PLATFORM_CONFIGS`) and a `-buildTarget Android -executeMethod Outernet.PlayerBuild.Entry`
+  flags assertion through the fake runner — coverage that did not exist at the resolve level.
+- **Inlined** `playerbuild_environment` into `build_player` (owner ruling over the keep
+  recommendation): the env dict construction sits inline at the `run_unity_batchmode` call.
+  Its two pure contract tests ported to harness env assertions (module-level `RECEIVED_SESSIONS`
+  recording in the producing fake).
+- **Inlined** `QUIET_FAILURE_BLOCK_LINE_LIMIT` (slice bound `20`).
+- **Kept**: `run_unity_batchmode` (4 callers), `read_editor_version` (matrix ×2 + runner),
+  `resolve_unity_project` (2 doors + `build_player`), `prepare_unity_project` (3 callers),
+  `parse_environment_fields` (2 doors), `build_player` (3 doors), `snapshot_artifacts` +
+  `replace_serialized_field` (2 live callsites each in `build_player`; the latter owns the
+  count-mismatch guard), `PLAYERBUILD_ENTRY` (vocabulary constant, AGENTS-named),
+  `QUIET_FAILURE_SIGNATURES` (documented extension point), `find_editor_for_version` +
+  `editor_version` (prepo contract regardless of count), `PLATFORM_CONFIGS` (matrix + core).
+
+Result: one `unity.py` (~250 lines), `player_build.py` deleted; test files renamed/ported
+(`test_player_build.py` + `test_resolve.py` → `test_build_player.py`, 10 harness tests;
+`test_dispatch_workflow_generator.py` sheds the two env tests it hosted). Suite 41 (net −8
+removed, +10 ported/new). Commits `9aaef7d` (code, gates ruff/basedpyright 0/0/pytest 41 —
+one ruff Yoda-condition autofix on the new flags assertion) + `d49e358` (AGENTS: the
+supporting-modules paragraph now names `unity.py` as the Unity layer's single document; the
+lookup-helpers and environment-transport constraints reworded off the dead symbols). No
+workflow, verb, or consumer surface changed — session 11's pins and releases are untouched.
+
+Next session: unchanged — verify the operator push (devkit now 61 ahead, HEAD = this commit)
+and the dual-registry release, then CT's gated Phase 6 remainder.
+
 ## Status (2026-09-27, session 11 close — build-door rotation + player-build core)
 
 Owner-initiated from the naming: `compile_unity.py` builds players while `check_unity.py`
