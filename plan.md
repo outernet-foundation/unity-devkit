@@ -81,6 +81,53 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 5 close — design cleanup + repo reorg; Phase 4 untouched)
+
+No Phase 4 work; the session was owner-directed design cleanup of the Phase 3 output plus a repo
+reorganization. Six commits, all local on main (21 ahead of origin with this one); operator
+handoff. Every commit gated: CSharpier, `check-unity` compile, env self-test green; the reorg
+additionally re-verified `uv sync`, pytest (27), ruff, basedpyright — all through the new layout.
+
+Package deltas (all inside `PlayerBuild/Assets/Package/Editor/`; the npm path is unchanged):
+- **`EnvironmentShape` is dead — the data class is `EnvironmentConfig`**, resolved by
+  `new EnvironmentConfig(classPath)` (the constructor is the old `ResolveEnvironment` body; the
+  static resolver class is gone). Symmetry with `BuildConfig`: two config objects, each
+  materialized by a mechanism (JSON parse / reflection). The no-op gate in `ApplyEnvironment`
+  still precedes construction — a class-less config with unset env must build; doors do not
+  resolve eagerly.
+- **The dump is split**: instance `EnvironmentConfig.Dump()` (emit only) + static door
+  `PlayerBuild.DumpEnvironment()` beside `Entry`. The executeMethod spelling for Phase 5's
+  generator and drift gate is `Outernet.PlayerBuild.DumpEnvironment` (nothing external had wired
+  the old spelling). `EnvironmentConfig.cs` is now the pure observer — zero references to
+  `PlayerBuild`.
+- **`EnvironmentFieldLeaf` → `EnvironmentField`** (`CollectEnvironmentFields` follows). The
+  "leaf" vocabulary is dead everywhere; the door dialect (error strings, `ENVIRONMENT_FIELDS`,
+  `--environment-field`) was always "field". Tree walk unchanged — nested classes recurse (real
+  today: `localConfig` in the fixture and MIS), arrays/Object-refs/IList self-exclude.
+- **`Platform.cs` is a new file**: the `Platform` static class (table + `Find`/`Names`) with
+  nested `Spec` (was `PlatformSpec`) and nested `Record` (was `PlatformRecord`). Amends the
+  package-shape line "the table is vocabulary, not a document — it lives in PlayerBuild.cs":
+  the package is now one-concept-per-file, and `PlayerBuild.cs` holds doors + orchestrator +
+  apply family + verification.
+- Ruled and rejected this session — do not relitigate: merging `BuildConfig.cs` +
+  `EnvironmentConfig.cs` into a `Config.cs`; moving `BuildVerification` out of `PlayerBuild.cs`
+  (it stays beside `Verify`; `SerializableBuildReport.cs` remains pure report DTOs). Tidy left
+  on the table: `BuildConfig.EnvironmentConfig` property → `EnvironmentClassPath` (JSON key
+  `environment_config` unchanged) — the property and the type currently share a spelling.
+
+Repo reorg, matching placeframe's monorepo shape: `packages/python/unity-devkit/` (member
+pyproject + `src` + `tests`; the root pyproject is a uv workspace shell holding the dev group,
+basedpyright, pytest, preflight tables) and `packages/unity/PlayerBuild/`. Catalog path,
+`release-devkit.json` (both package paths), `.gitignore`, `ruff.toml` updated; the workflows are
+catalog-driven and needed no edits; the `--project PlayerBuild` contract is unchanged. The next
+release's path-diff sees the wholesale moves — expect patch bumps on both ledgers (accepted
+tier, same as the 0.1.12–0.1.14 burns).
+
+Next session executes **Phase 4** (configure window, environment pane) per §Environment model's
+derived window rules, against the new vocabulary (`new EnvironmentConfig(path)`,
+`Platform.Spec`, `Platform.Record`). The §Package shape section's file listing predates this
+session — this record's deltas govern.
+
 ## Status (2026-09-27, session 4 close — Phase 3 complete)
 
 Phase 3 executed in full (env core, package C#), then owner-reviewed into a leaner shape across the
@@ -152,6 +199,8 @@ rather than the concrete `Dictionary<,>` fails at the mode-field `Single` (MIS f
 Next session executes **Phase 4** (configure window, environment pane) per §Environment model's
 derived window rules. Commits: `59ee5b5` (package), `8dd4a0b` (fixture + CI), plus this plan
 commit — all local on main with the three pending plan commits; operator handoff.
+
+Next-session pointer superseded by the session-5 close above; retained for the record.
 
 ## Status (2026-09-27, session 3 close — plan restructured; no code)
 
