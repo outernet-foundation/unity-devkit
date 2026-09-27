@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from .projects import load_catalog
-from .unity import LICENSE_MODULE, PLATFORM_CONFIGS, UNITYCI_IMAGE_REVISION, read_editor_version
+from .unity import LICENSE_IMAGE_MODULE, PLATFORM_CONFIGS, UNITYCI_IMAGE_REVISION, read_editor_version
 
 
 def main() -> None:
@@ -16,14 +16,14 @@ def main() -> None:
         version = read_editor_version(project.path)
         editor_versions.add(version)
         for platform in project.builds:
-            module = PLATFORM_CONFIGS[platform]["module"]
+            image_module = PLATFORM_CONFIGS[platform]["unityci_image_module"]
             matrix.append({
                 "project": str(project.path.relative_to(Path.cwd())),
                 "project-name": name,
                 "cache-key": name.lower(),
                 "platform": platform,
-                "module": module,
-                "editor-image": f"unityci/editor:{version}-{module}-{UNITYCI_IMAGE_REVISION}",
+                "unityci-image-module": image_module,
+                "editor-image": f"unityci/editor:{version}-{image_module}-{UNITYCI_IMAGE_REVISION}",
             })
 
     if not editor_versions:
@@ -32,7 +32,7 @@ def main() -> None:
         )
     license_version = max(editor_versions)
     print(f"matrix={json.dumps({'include': matrix})}")
-    print(f"license-image=unityci/editor:{license_version}-{LICENSE_MODULE}-{UNITYCI_IMAGE_REVISION}")
+    print(f"license-image=unityci/editor:{license_version}-{LICENSE_IMAGE_MODULE}-{UNITYCI_IMAGE_REVISION}")
 
 
 def check_matrix() -> None:
@@ -45,8 +45,8 @@ def check_matrix() -> None:
         editor_versions.add(version)
         matrix.append({
             "project-name": name,
-            "editor-image": f"unityci/editor:{version}-{LICENSE_MODULE}-{UNITYCI_IMAGE_REVISION}",
+            "editor-image": f"unityci/editor:{version}-{LICENSE_IMAGE_MODULE}-{UNITYCI_IMAGE_REVISION}",
         })
 
     print(f"matrix={json.dumps({'include': matrix})}")
-    print(f"license-image=unityci/editor:{max(editor_versions)}-{LICENSE_MODULE}-{UNITYCI_IMAGE_REVISION}")
+    print(f"license-image=unityci/editor:{max(editor_versions)}-{LICENSE_IMAGE_MODULE}-{UNITYCI_IMAGE_REVISION}")

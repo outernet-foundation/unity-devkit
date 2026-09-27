@@ -31,7 +31,7 @@ def test_matrix_emits_entries_from_catalog(
             "project-name": "tool",
             "cache-key": "tool",
             "platform": "linux64",
-            "module": "linux-il2cpp",
+            "unityci-image-module": "linux-il2cpp",
             "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3",
         }
     ]

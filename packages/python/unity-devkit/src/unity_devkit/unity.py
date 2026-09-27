@@ -13,23 +13,35 @@ from .projects import CatalogEntry, load_catalog
 
 class PlatformConfig(TypedDict):
     build_flag: str
-    module: str
+    unityci_image_module: str
     playerbuild_platform: str
 
 
 PLATFORM_CONFIGS: dict[str, PlatformConfig] = {
     "android-mobile": {
         "build_flag": "-buildTarget Android",
-        "module": "android",
+        "unityci_image_module": "android",
         "playerbuild_platform": "AndroidMobile",
     },
-    "magicleap": {"build_flag": "-buildTarget Android", "module": "android", "playerbuild_platform": "MagicLeap2"},
-    "linux64": {"build_flag": "-buildTarget StandaloneLinux64", "module": "linux-il2cpp", "playerbuild_platform": ""},
-    "win64": {"build_flag": "-buildTarget Win64", "module": "windows-mono", "playerbuild_platform": ""},
+    "magicleap": {
+        "build_flag": "-buildTarget Android",
+        "unityci_image_module": "android",
+        "playerbuild_platform": "MagicLeap2",
+    },
+    "linux64": {
+        "build_flag": "-buildTarget StandaloneLinux64",
+        "unityci_image_module": "linux-il2cpp",
+        "playerbuild_platform": "",
+    },
+    "win64": {
+        "build_flag": "-buildTarget Win64",
+        "unityci_image_module": "windows-mono",
+        "playerbuild_platform": "",
+    },
 }
 
 UNITYCI_IMAGE_REVISION = "3"
-LICENSE_MODULE = "linux-il2cpp"
+LICENSE_IMAGE_MODULE = "linux-il2cpp"
 
 # Unity exits 0 while reporting fatal package-manager errors only in the editor log. Every
 # Unity invocation goes through run_unity_batchmode, which scans the captured log for these
