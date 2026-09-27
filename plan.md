@@ -81,6 +81,55 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 6 close — Phase 4 complete)
+
+The configure window grew the mode-aware environment pane per §Environment model's derived
+window rules, against the session-5 vocabulary (`ConfigureWindow.cs`, +122 lines). The pane
+renders only when `build-config.json` carries `environment_config`; the resolved
+`EnvironmentConfig` is cached per class path in window fields (wiped on domain reload); the
+live asset at `TargetPath` is held as a `SerializedObject`, recreated on class-path change and
+after every preset application (the copy replaces the asset).
+
+- Mode selector = index popup over the map's key enum names; current value derived from the
+  live asset's mode property each frame (stateless — the asset is the truth), empty when no
+  live asset exists.
+- Preset selection (map member) = `PlayerBuild.ApplyEnvironment(classPath, name, {})` — the
+  same function the batchmode door calls; copy + mode travel + save.
+- Non-preset selection = mode-only write, inline in the pane (`Enum.Parse` → `intValue`,
+  `ApplyModifiedProperties`, `SaveAssets`) — no new application function (single callsite,
+  rule 1). With no live asset it is a no-op under the standing warning box.
+- No live asset → warning box ("select a preset to create it"); preset picks still work (the
+  copy creates the asset) — the fresh-checkout reality, since `_LocalWorkspace/` is gitignored.
+- Preset mode → fields inside `EditorGUI.DisabledScope`, banner "edits here are overwritten by
+  the next preset application; switch to a non-preset mode to hand-edit"; non-preset mode →
+  editable, banner "Hand-edited — nothing overwrites these". Write-lifecycle claims only
+  (F34). The banner says "non-preset mode", not the plan's "Override" — the package-never-
+  names-Override ruling (session 2) applied to UI copy.
+- Field rows = `PropertyField` labeled by the reflected `EnvironmentField` paths (the door
+  vocabulary is the interface); the mode field is mechanically deduped (it is the selector);
+  arrays/objects stay self-excluded (never in `Fields`). Hand edits in non-preset mode persist
+  via `ApplyModifiedProperties` + `SaveAssets` on change.
+- Stale-asset rows (mode or field absent from the live asset) and env-class resolution
+  failures render as the pane's error HelpBox — a base-`Exception` catch at the OnGUI
+  boundary (a long-lived event loop, the sanctioned boundary shape), type + message, no
+  per-frame log spam.
+- The Apply button stays platform-only (`""` + no fields): the pane materializes environment
+  state immediately on interaction, so a full Apply re-enters `ApplyEnvironment`'s no-op gate
+  — harmless by construction.
+
+Accepted edge on record: re-picking the already-selected preset is a no-op (IMGUI popups
+report no change); a preset re-copy is two clicks (switch away and back). No machinery added.
+
+Gates: CSharpier clean; `check-unity` compile gate green; the env self-test door re-run green
+(preset copy + six overrides + read-back unchanged). Hand-smoke against the harness fixture is
+**pending for the owner** — it needs a GUI and a temporary `build-config.json` in the harness
+(`environment_config: "Assets/Editor/FixtureEnv.cs"` + a platforms entry), which the harness
+deliberately never commits; delete it after the smoke.
+
+Next session executes **Phase 5** (Python flags + dispatch generator + `--build-env`
+deletion; one devkit release) per the phase list. Commits: `2a6658f` (package) plus this plan
+commit — local on main; operator handoff.
+
 ## Status (2026-09-27, session 5 close — design cleanup + repo reorg; Phase 4 untouched)
 
 No Phase 4 work; the session was owner-directed design cleanup of the Phase 3 output plus a repo
@@ -127,6 +176,8 @@ Next session executes **Phase 4** (configure window, environment pane) per §Env
 derived window rules, against the new vocabulary (`new EnvironmentConfig(path)`,
 `Platform.Spec`, `Platform.Record`). The §Package shape section's file listing predates this
 session — this record's deltas govern.
+
+Next-session pointer superseded by the session-6 close above; retained for the record.
 
 ## Status (2026-09-27, session 4 close — Phase 3 complete)
 
