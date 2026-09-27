@@ -17,14 +17,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Wipe workspace
-      shell: bash
-      run: |
-        find "$GITHUB_WORKSPACE" -mindepth 1 -delete
-        rm -rf ~/.cache/Unity
-
-    - uses: actions/checkout@v5
-
     - uses: astral-sh/setup-uv@v7
       with:
         enable-cache: true
