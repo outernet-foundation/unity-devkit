@@ -81,6 +81,67 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 10 close — catalog shrink + the versioning boundary)
+
+Three rulings executed, all pre-push, riding the pending releases:
+
+- **Pinned rename executed, name amended by the owner past the pin**: `dispatch.py` →
+  `dispatch_workflow_generator.py` — `dispatch_generator` judged insufficient,
+  `github_workflow_dispatch_input_yml_generator` correct but unwieldy; the landed name keeps the
+  load-bearing words (workflow, dispatch, generator), drops the redundant ones (github, yml,
+  input). Verb stays `unity-dispatch`; entry `unity_devkit.dispatch_workflow_generator:app`; the
+  test module followed (`test_<module>` mirror). Commits `a6058ad` + `4e4e5bb`.
+- **The catalog schema shrank to `path` + `builds` — all four optional fields dead.**
+  `execute_methods`: degenerate under Entry's env-var platform transport — the `PLAYERBUILD_ENTRY`
+  constant lives in `unity.py`, `resolve_unity_build` returns a 2-tuple, the missing-method guard
+  is gone. `package`/`grant_permissions`: install-door conveniences ruled cruft-or-wrong-place —
+  the surviving ADB branch is bare `adb install` (reinstall over an existing package fails
+  loudly; the human uninstalls — accepted), CT's READ_LOGS grant is a manual smoke-checklist
+  step. `tag_prefix`: died with the versioning boundary below. Commits `355192a`/`90acdac`
+  (install pair), `3f775b7`/`f5e2221` (version + execute_methods + docs), `d7bb6ba` (flattened
+  the nested double rewrite in `stamp_build_version` after an owner readability complaint).
+- **The versioning boundary (owner's encapsulation law)**: build tools take versions as inputs
+  and never derive them — the string "release-devkit" appears nowhere in unity-devkit's code,
+  workflows, or configs; unity-devkit stamps whatever opaque string it is handed. The mistake
+  diagnosed: `versioning.py`'s ledger query was a verbatim clone of release-devkit's
+  `list_tag_versions` and the catalog's `tag_prefix` a duplicate of release-devkit.json's app
+  entry — three copies of one concept; the old "version-ledger primitives live in release-devkit
+  and are not imported here" AGENTS line was the smell made policy. Corrected cut: WHAT version =
+  release-devkit, sole owner, exposed for build-time use by its new `app-build-version` verb
+  (latest stable `{tag_prefix}-v*` tag, prerelease-suffixed tags excluded, `0.0.0` fallback,
+  `GITHUB_REF_NAME == "main"` → `{v}+{run}` else `{v}-dev+{run}`, run number from `--run-number`
+  or `GITHUB_RUN_NUMBER`); HOW to stamp = the ProjectSettings writer (all that remains of
+  `versioning.py`); TRANSPORT = an explicit parameter — `--version <string>` on both build verbs
+  (replacing `--stamp-version`), an optional `version` input on the hosted workflow
+  (SHA-pin compatible), the consumer's workflow bridges. Moving the ledger into ci-devkit was
+  considered and rejected: ci-devkit is runner/step/cache floor with no version semantics;
+  release-devkit cuts the tags and owns the concept. `AndroidBundleVersionCode` stays the run
+  number (a CI fact, no ledger).
+
+Cross-repo execution: release-devkit `08568e9` (verb + six tests; ruff/basedpyright/pytest-91
+green) + `709db9f` (AGENTS Commands row, README boundary paragraph) — 2 ahead of origin. CT
+`fa66c10` (catalog keyless; ci.yml grows a `resolve-version` job — fetch-depth 0 for the tag
+ledger, `uvx --from release-devkit==0.1.17 app-build-version --app CaptureTool` — feeding the
+hosted workflow's `version` input; the whole input migration done in the same edit: dead
+`build-env:` dropped, pin moved off `cfd487e`) + `add6364` (READ_LOGS manual in both AGENTS) +
+`b77c62a` (repin after the flatten) — 8 ahead on `dev`; its dirty Unity assets and
+`extraction-plan.md` left untouched, as found. unity-devkit gates: ruff, basedpyright 0/0,
+pytest 40 (net −3 by design: the ledger test file, one versioning test, one resolve test).
+
+Assumptions on record: CT's `release-devkit==0.1.17` pin presumes the next release-devkit patch
+is `0.1.17` (one-word fix at the pin if not); CT's workflow pin is `d7bb6ba` — repin if devkit
+history moves again before the operator push; CT's CI hard-requires the devkit push to land
+first (pin + input surface), consistent with the established gating. Still open from earlier
+sessions, owner-side: the MIS panel-budget arithmetic (21 vs 22 of 25) and the session-8
+platform-dropdown question (filter to `config.Platforms.Keys` vs vocabulary-wide).
+
+Next session: verify the operator pushed unity-devkit (main 53 ahead, HEAD `d7bb6ba`) and
+release-devkit (2 ahead, HEAD `709db9f`), and that the releases landed — devkit's dual-registry
+release and release-devkit's `0.1.17` carrying `app-build-version` — then CT's gated remainder
+per Phase 6, now shrunk to: npm pin swap off the local `file:` pin, dispatch workflow generation
++ drift gate, APK smoke (`aapt` versionName/Code vs the stamp — first live proof of the
+version-input path end-to-end), and the Phase 1 acceptance probe.
+
 ## Status (2026-09-27, session 9 close — Phase 5 complete)
 
 Phase 5 executed in full: the Python half plus the release preparation. Landed:
@@ -185,6 +246,8 @@ the same release for tidiness.
 
 Next session (updated after the rename landed): verify the operator pushed and the release landed
 (both registries), then CT's gated remainder per Phase 6.
+
+Next-session pointer superseded by the session-10 close above; retained for the record.
 
 ## Status (2026-09-27, session 8 close — pane NRE root-caused and fixed)
 
