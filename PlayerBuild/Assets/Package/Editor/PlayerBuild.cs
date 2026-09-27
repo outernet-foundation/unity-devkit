@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -144,7 +145,7 @@ namespace Outernet
 
             bool development = developmentValue == "true";
             string environmentName = Environment.GetEnvironmentVariable("ENVIRONMENT") ?? "";
-            Dictionary<string, string> environmentFields = EnvironmentBuild.ReadEnvironmentFields();
+            Dictionary<string, string> environmentFields = ReadEnvironmentFields();
 
             PlatformSpec spec = Platform.Find(platform);
             BuildConfig config = LoadConfig();
@@ -169,6 +170,18 @@ namespace Outernet
             }
 
             Debug.Log($"[playerbuild] Build succeeded: {outputPath}");
+        }
+
+        public static Dictionary<string, string> ReadEnvironmentFields()
+        {
+            string fieldsJson = Environment.GetEnvironmentVariable("ENVIRONMENT_FIELDS");
+            if (string.IsNullOrEmpty(fieldsJson))
+            {
+                return new Dictionary<string, string>();
+            }
+
+            return JsonConvert.DeserializeObject<Dictionary<string, string>>(fieldsJson)
+                ?? new Dictionary<string, string>();
         }
 
         public static BuildConfig LoadConfig()
@@ -236,7 +249,7 @@ namespace Outernet
                 return;
             }
 
-            EnvironmentShape shape = EnvironmentBuild.ResolveEnvironment(classPath);
+            EnvironmentShape shape = EnvironmentConfig.ResolveEnvironment(classPath);
             bool applyingPreset = environment.Length > 0;
             if (applyingPreset)
             {
@@ -281,14 +294,13 @@ namespace Outernet
                     );
                 }
 
-                object parsed = EnvironmentBuild.ParseEnvironmentValue(leaf, entry.Value);
                 if (leaf.FieldType.IsEnum)
                 {
-                    property.intValue = (int)(long)parsed;
+                    property.intValue = (int)Convert.ToInt64(Enum.Parse(leaf.FieldType, entry.Value, true));
                 }
                 else
                 {
-                    property.boxedValue = parsed;
+                    property.boxedValue = Convert.ChangeType(entry.Value, leaf.FieldType, CultureInfo.InvariantCulture);
                 }
             }
 

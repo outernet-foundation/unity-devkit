@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json;
@@ -27,7 +26,7 @@ namespace Outernet
         public List<EnvironmentFieldLeaf> Fields = new();
     }
 
-    public static class EnvironmentBuild
+    public static class EnvironmentConfig
     {
         public static void DumpEnvironment()
         {
@@ -70,27 +69,21 @@ namespace Outernet
             );
         }
 
-        public static Dictionary<string, string> ReadEnvironmentFields()
-        {
-            string fieldsJson = Environment.GetEnvironmentVariable("ENVIRONMENT_FIELDS");
-            if (string.IsNullOrEmpty(fieldsJson))
-            {
-                return new Dictionary<string, string>();
-            }
-
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(fieldsJson)
-                ?? new Dictionary<string, string>();
-        }
-
         public static EnvironmentShape ResolveEnvironment(string classPath)
         {
             Type classType = AssetDatabase.LoadAssetAtPath<MonoScript>(classPath)!.GetClass()!;
             FieldInfo[] staticFields = classType.GetFields(BindingFlags.Public | BindingFlags.Static);
             FieldInfo presetsField = staticFields.Single(field => field.Name == "Presets");
+            Type dictionaryInterface = presetsField.FieldType.GetInterface("System.Collections.Generic.IDictionary`2");
             EnvironmentShape shape = new()
             {
                 ClassType = classType,
-                ModeEnumType = KeyEnumType(presetsField.FieldType),
+                ModeEnumType =
+                    dictionaryInterface != null
+                    && dictionaryInterface.GetGenericArguments()[0].IsEnum
+                    && dictionaryInterface.GetGenericArguments()[1] == typeof(string)
+                        ? dictionaryInterface.GetGenericArguments()[0]
+                        : null!,
             };
             foreach (DictionaryEntry presetEntry in (System.Collections.IDictionary)presetsField.GetValue(null)!)
             {
@@ -107,18 +100,6 @@ namespace Outernet
                 .Name;
             CollectEnvironmentLeaves(classType, "", shape.Fields);
             return shape;
-        }
-
-        private static Type KeyEnumType(Type dictionaryType)
-        {
-            Type dictionaryInterface = dictionaryType.GetInterface("System.Collections.Generic.IDictionary`2");
-            if (dictionaryInterface == null)
-            {
-                return null!;
-            }
-
-            Type[] arguments = dictionaryInterface.GetGenericArguments();
-            return arguments[0].IsEnum && arguments[1] == typeof(string) ? arguments[0] : null!;
         }
 
         private static void CollectEnvironmentLeaves(
@@ -148,13 +129,6 @@ namespace Outernet
 
                 CollectEnvironmentLeaves(fieldType, path, leaves);
             }
-        }
-
-        public static object ParseEnvironmentValue(EnvironmentFieldLeaf leaf, string rawValue)
-        {
-            return leaf.FieldType.IsEnum
-                ? Convert.ToInt64(Enum.Parse(leaf.FieldType, rawValue, true))
-                : Convert.ChangeType(rawValue, leaf.FieldType, CultureInfo.InvariantCulture);
         }
     }
 }
