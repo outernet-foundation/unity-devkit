@@ -12,15 +12,8 @@ from ci_devkit.ci_step import ci_step
 from .license_restore import restore_license
 from ci_devkit.setup import configure_git, install_dotnet
 from ci_devkit.setup_oras import install_oras
-from .unity import (
-    PLAYERBUILD_ENTRY,
-    playerbuild_environment,
-    parse_environment_fields,
-    prepare_unity_project,
-    resolve_unity_build,
-    run_unity_batchmode,
-)
-from .versioning import stamp_build_version
+from .player_build import build_player
+from .unity import parse_environment_fields, resolve_unity_project
 
 
 class Settings(BaseSettings):
@@ -68,27 +61,21 @@ def main(
         restore(registry, "unity-library", tag, Path("."), fallback_tags=fallback_tags)
 
     with ci_step("Prepare build"):
-        project_config, build_target = resolve_unity_build(project, platform)
-        unity_project_path = project_config.path
+        unity_project_path = resolve_unity_project(project).path
         if unity_project_path.resolve() != project_path.resolve():
             raise SystemExit(
                 f"--project-path {project_path} does not match catalog entry '{project}' at {unity_project_path}"
             )
 
-    with ci_step("Prepare project"):
-        prepare_unity_project(unity_project_path)
-
     with ci_step(f"Build {project} [{platform}]"):
-        if version:
-            stamped = stamp_build_version(unity_project_path, version, run_number)
-            print(f"Stamped bundleVersion {stamped} (bundleVersionCode={run_number}) into ProjectSettings")
-
-        env = playerbuild_environment(platform, development, environment_preset, fields)
-        run_unity_batchmode(
-            unity_project_path,
-            f"-buildTarget {build_target} -executeMethod {PLAYERBUILD_ENTRY}",
-            nographics=False,
-            env=env,
+        build_player(
+            project,
+            platform,
+            version=version,
+            run_number=run_number,
+            development=development,
+            environment_preset=environment_preset,
+            environment_fields=fields,
         )
 
     with ci_step("Save library cache"):

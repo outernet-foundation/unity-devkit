@@ -2,8 +2,7 @@ from typing import Annotated
 
 import typer
 
-from .projects import load_catalog
-from .unity import prepare_unity_project, run_unity_batchmode
+from .unity import prepare_unity_project, resolve_unity_project, run_unity_batchmode
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 
@@ -22,11 +21,7 @@ def check_unity(
         typer.Option(help="Startup build target (e.g. Android) for sessions that must open on a non-default platform"),
     ] = None,
 ) -> None:
-    projects = load_catalog()
-    if project not in projects:
-        raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
-
-    project_path = projects[project].path
+    project_path = resolve_unity_project(project).path
     extra_flags = ""
     if build_target:
         extra_flags += f" -buildTarget {build_target}"

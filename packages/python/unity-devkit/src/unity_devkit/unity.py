@@ -141,12 +141,15 @@ def editor_version(project_path: Path) -> str | None:
     return None
 
 
-def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str]:
+def resolve_unity_project(project: str) -> CatalogEntry:
     projects = load_catalog()
     if project not in projects:
         raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
+    return projects[project]
 
-    project_config = projects[project]
+
+def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str]:
+    project_config = resolve_unity_project(project)
     valid_builds = project_config.builds or []
     if not valid_builds:
         raise SystemExit(

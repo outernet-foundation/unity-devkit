@@ -8,7 +8,7 @@ from typing import Annotated, Any
 import typer
 from bashrun.bash import bash, bash_handoff, bash_output
 
-from .compile_unity import build_unity_project
+from .player_build import build_player
 from .projects import load_catalog
 
 INSTALLABLE_TARGETS = {"AndroidMobile", "MagicLeap2", "Linux"}
@@ -71,9 +71,9 @@ def main(
     if build_locally:
         if branch or run:
             print("Warning: --branch / --run are ignored when --build is set")
-        produced = build_unity_project(project_name, target_name)
+        produced = build_player(project_name, target_name)
         apks = [path for path in produced if path.suffix == ".apk"]
-        executables = [path for path in produced if path.suffix == ".exe"]
+        executables = [path for path in produced if path.suffix in {".exe", ".x86_64"}]
     else:
         artifact_name = f"{project_name}-{target_name}"
 
