@@ -81,6 +81,60 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 7 close — CT Unity flip pulled ahead of Phase 5)
+
+Owner reorder: Phase 6's Unity half executed first, so the configure window is visible in a real
+editor — Phase 5 (Python) still follows; its remaining flip items stay gated on it. The package
+reaches CT by a **local `file:` pin** (owner decision) — `org.outernet.playerbuild:
+file:../../../../unity-devkit/packages/unity/PlayerBuild/Assets/Package` in CT's manifest
+(relative `file:` paths anchor at the project's `Packages/` folder — three ups reaches CT's repo
+root, four reaches the workspace sibling; learned by a failed resolve). The npm pin swaps in at
+the Phase 5-gated finish. CT commit `f3a3d5b` on `dev` (4 ahead, unpushed with the rest of the
+punt):
+
+- `CaptureEnv : ScriptableObject` at `Assets/CaptureEnv.cs` (file named for the class — the
+  `GetClass` rule) in `Placeframe.Client`: fields apiUrl/username/password, enum
+  `{ Airgapped, Override }`, `Presets = { Airgapped → Assets/BuildConfigs/CaptureEnvAirgapped.asset }`,
+  `TargetPath = Assets/_LocalWorkspace/Resources/CaptureEnv.asset`. No `Default` member —
+  today's CONFIG_TYPE=default maps to ambient no-op: no live asset → SettingsManager's
+  hardcoded-fallback tier, which is exactly today's default behavior (fresh CI checkouts get
+  the same; a dev machine that applied airgapped keeps it until switched — the model's intent).
+  `Override` exists so the map complement has a member (window hand-edit + future per-field
+  doors); the runtime ignores the mode entirely.
+- Committed preset `CaptureEnvAirgapped.asset` hand-written in fixture-asset YAML form (mode
+  `Airgapped`, apiUrl `http://192.168.8.10:58080`, user/password) with minted-GUID metas;
+  imported clean by the gate session (log-verified). `airgapped-settings.json` deleted.
+- `SettingsManager`'s baked branch: `Resources.Load<TextAsset>("default-settings")` +
+  SimpleJSON → `Resources.Load<CaptureEnv>("CaptureEnv")` seeding the three `StateValue`s; the
+  `persistentDataPath` write-back chain and hardcoded fallbacks untouched (F35 shape).
+- `build-config.json` at the CT project root: `environment_config: "Assets/CaptureEnv.cs"`,
+  `platforms["AndroidMobile"]` empty overrides (no pipeline/defines — matches today's globals).
+- Catalog `execute_methods` → `Outernet.PlayerBuild.Entry`; `BuildScript.cs` deleted. CT's
+  ci.yml still passes `build-env: CONFIG_TYPE=default` — inert under Entry (unused env var ≡
+  ambient no-op ≡ default), and unpushed anyway; air-gapped dispatch needs Phase 5.
+
+Gates: `check-unity` compile gate on CaptureTool green (file: package resolved, package asmdef
+compiles against CT's assemblies, lock regenerated with playerbuild + openxr 1.16.1); the dump
+door run against the real class — `ENVIRONMENT_CONFIG_CLASS=Assets/CaptureEnv.cs
+--execute-method Outernet.PlayerBuild.DumpEnvironment` emits the full contract JSON (class,
+mode field, preset map, enum, fields) — the reflection path proven in the consumer, not just
+the fixture. Editor look pending for the owner (sandbox has no GUI): open `apps/CaptureTool`,
+`Window > Player Build` — pane appears between Development and Last applied; picking Airgapped
+copies the preset to `_LocalWorkspace`, Override makes fields hand-editable.
+
+Ruled and reversed this session — do not relitigate: dropping playerbuild's
+`com.unity.nuget.newtonsoft-json` dependency (feared a duplicate-assembly clash with CT's
+NuGetForUnity copy) — false premise: CT's own committed `zedcaptureclient` local package
+already declares the same UPM dependency and has coexisted with the NuGet DLL under green CI.
+Removed and reverted same session (devkit commits `668f8ef` + `1ec4089`); the dependency
+stays. Local player builds through Entry are Phase-5-gated: `compile-unity` passes no
+`PLATFORM`/`DEVELOPMENT` transport today — the window (direct `Apply` call) is the working
+editor door, as the reorder intended.
+
+Next session executes **Phase 5** (Python flags + dispatch generator + `--build-env`
+deletion; the devkit release), then CT's gated remainder (CI `--environment` migration,
+dispatch workflow, APK smoke, the Phase 1 acceptance probe) rides it.
+
 ## Status (2026-09-27, session 6 close — Phase 4 complete)
 
 The configure window grew the mode-aware environment pane per §Environment model's derived
@@ -129,6 +183,9 @@ deliberately never commits; delete it after the smoke.
 Next session executes **Phase 5** (Python flags + dispatch generator + `--build-env`
 deletion; one devkit release) per the phase list. Commits: `2a6658f` (package) plus this plan
 commit — local on main; operator handoff.
+
+Next-session pointer superseded by the session-7 close above (Phase 5 unchanged; the CT Unity
+flip landed early); retained for the record.
 
 ## Status (2026-09-27, session 5 close — design cleanup + repo reorg; Phase 4 untouched)
 
