@@ -81,7 +81,7 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
-## Status (2026-09-27, session 8 open — pane NRE instrumented, root cause pending)
+## Status (2026-09-27, session 8 close — pane NRE instrumented, repro gone)
 
 Owner smoke of the CT window found a live bug: after clicking Apply (which writes the table
 defines → script recompile → domain reload), the environment pane renders
@@ -100,9 +100,13 @@ second platform.json write at 14:59). Static walk of every pane line against tha
 no null path — the throw depends on transient post-reload editor state. Leading suspects:
 `MonoScript.GetClass()` returning null during/after the define-triggered recompile (the ctor's
 `!` operators turn that into a bare NRE — the session-4 "loud inscrutable BCL" ruling taken
-literally), or the no-live-asset popup path (`Popup(-1)`). **Next step: owner repro with the
-new instrumentation and read the logged stack** — fix follows the trace. The window's Apply
-UX is otherwise proven: preset pick through the popup, copy, mode travel, and both Apply
+literally), or the no-live-asset popup path (`Popup(-1)`). **Owner repro attempt after the
+instrumentation landed came up clean — the NRE did not reappear** (consistent with a transient
+post-reload state that the package recompile itself cleared). The bug is unexplained but
+non-reproducing; no stack will be forthcoming. The instrumentation stays permanently (owner
+directive: pane exceptions must log with stack); if the NRE ever returns, the console entry
+names the line and the fix follows. Treat the NRE as closed-unless-it-returns. The window's
+Apply UX is otherwise proven: preset pick through the popup, copy, mode travel, and both Apply
 clicks all worked in the owner's editor.
 
 ## Status (2026-09-27, session 7 close — CT Unity flip pulled ahead of Phase 5)
