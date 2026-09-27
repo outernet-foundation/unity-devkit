@@ -88,7 +88,7 @@ Phase 5 executed in full: the Python half plus the release preparation. Landed:
 - **Transport + child-env control.** `run_unity_batchmode` grew an `env` parameter (a bashrun overlay — never
   `os.environ` mutation) and now returns the captured log path. `unity.py` gained
   `parse_environment_fields` (newline/repeatable `path=value` → dict, split on first `=`, loud on bare
-  paths) and `child_environment` (builds the entry contract: `PLATFORM`, `DEVELOPMENT` always,
+  paths) and `playerbuild_environment` (builds the entry contract: `PLATFORM`, `DEVELOPMENT` always,
   `ENVIRONMENT`/`ENVIRONMENT_FIELDS` only when non-empty — unset stays ambient no-op). Build names map to
   playerbuild platform names via `playerbuild_platform` in `PLATFORM_CONFIGS` (`android-mobile` →
   `AndroidMobile`, `magicleap` → `MagicLeap2`; `linux64`/`win64` carry `""` — their execute methods are
@@ -141,12 +141,14 @@ would count 21. No third control is derivable from the panel rules; if the owner
 
 Vocabulary amendment (owner-directed, same session, before any release froze the names): bare
 `environment` became `environment_preset` in every Python-facing spelling — the bare name collided
-with GitHub's `environment` input type in the panel, and `child_environment`'s parameter read as the
-process environment it isn't; the generated dispatch input id and the hosted `unity-build.yml` input
-followed (`environment-preset`, hyphenated ids ride bracket notation in expressions —
-`inputs['environment-preset']`, subtraction would otherwise parse), and the generator's class override
-became `--environment-config-class`, matching the `ENVIRONMENT_CONFIG_CLASS` door var verbatim. The
-transport env vars themselves (`ENVIRONMENT`, `ENVIRONMENT_FIELDS`) keep the Phase 3 C# spellings.
+with GitHub's `environment` input type in the panel; the generated dispatch input id and the hosted
+`unity-build.yml` input followed (`environment-preset`, hyphenated ids ride bracket notation in
+expressions — `inputs['environment-preset']`, subtraction would otherwise parse); the generator's
+class override became `--environment-config-class`, matching the `ENVIRONMENT_CONFIG_CLASS` door var
+verbatim; and the transport builder was renamed `child_environment` → `playerbuild_environment` —
+naming the contract's consumer (the C# entry), not the process-tree vehicle, after the "child" +
+"environment" pairing read as process jargon. The transport env vars themselves (`ENVIRONMENT`,
+`ENVIRONMENT_FIELDS`) keep the Phase 3 C# spellings.
 
 The release (one devkit release carrying both registries) rides the operator push: 31 commits local on
 main (29 prior, plus the owner's mid-session `b7b77fd`/`2559e0a` window-fix pair) → push → CI → `release.yml` publishes PyPI `unity-devkit` + npm `org.outernet.playerbuild` (path-
