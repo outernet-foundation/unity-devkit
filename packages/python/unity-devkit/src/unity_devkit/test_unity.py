@@ -6,7 +6,7 @@ from typing import Annotated
 import typer
 
 from .projects import load_catalog
-from .unity import run_unity_batchmode
+from .player_build import run_unity_batchmode
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 

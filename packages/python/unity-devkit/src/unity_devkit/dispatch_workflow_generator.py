@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 from .compile_check_unity import COMPILE_ERROR_SIGNATURES
 from .projects import load_catalog
-from .unity import prepare_unity_project, run_unity_batchmode
+from .player_build import prepare_unity_project, run_unity_batchmode
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 

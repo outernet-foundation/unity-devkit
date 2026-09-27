@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from .projects import load_catalog
-from .unity import LICENSE_IMAGE_MODULE, PLATFORM_CONFIGS, UNITYCI_IMAGE_REVISION, read_editor_version
+from .player_build import LICENSE_IMAGE_MODULE, PLATFORM_CONFIGS, UNITYCI_IMAGE_REVISION, read_editor_version
 
 
 def build_matrix() -> None:

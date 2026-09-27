@@ -9,7 +9,7 @@ import typer
 from bashrun.bash import bash, bash_handoff, bash_output
 
 from .projects import load_catalog
-from .unity import build_player
+from .player_build import build_player
 
 INSTALLABLE_TARGETS = {"AndroidMobile", "MagicLeap2", "Linux"}
 ADB_TARGETS = {"AndroidMobile", "MagicLeap2"}

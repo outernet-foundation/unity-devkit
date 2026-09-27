@@ -2,7 +2,7 @@ from typing import Annotated
 
 import typer
 
-from .unity import prepare_unity_project, resolve_unity_project, run_unity_batchmode
+from .player_build import prepare_unity_project, resolve_unity_project, run_unity_batchmode
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 

@@ -10,7 +10,7 @@ from unity_devkit.dispatch_workflow_generator import (
     extract_environment_dump,
     render_dispatch_workflow,
 )
-from unity_devkit.unity import parse_environment_fields
+from unity_devkit.player_build import parse_environment_fields
 
 FIXTURE_DUMP = Path(__file__).parent / "fixtures" / "environment-dump.json"
 PINNED_BUILD_WORKFLOW = (

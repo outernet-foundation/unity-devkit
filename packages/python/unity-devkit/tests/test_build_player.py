@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from unity_devkit import unity
+from unity_devkit import player_build
 
 PROJECT_SETTINGS = """PlayerSettings:
   m_ObjectHideFlags: 0
@@ -44,9 +44,9 @@ def test_build_player_stamps_version_and_returns_artifacts(tmp_path: Path, monke
     RECEIVED_SESSIONS.clear()
     project = write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile"])
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(unity, "run_unity_batchmode", fake_unity_build_producing)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
 
-    produced = unity.build_player("tool", "AndroidMobile", version="0.2.7-dev+42", run_number=42)
+    produced = player_build.build_player("tool", "AndroidMobile", version="0.2.7-dev+42", run_number=42)
 
     rewritten = (project / "ProjectSettings" / "ProjectSettings.asset").read_text()
     assert "  AndroidBundleVersionCode: 42\n" in rewritten
@@ -59,9 +59,9 @@ def test_build_player_stamps_version_and_returns_artifacts(tmp_path: Path, monke
 def test_build_player_treats_the_version_string_as_opaque(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile"])
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(unity, "run_unity_batchmode", fake_unity_build_producing)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
 
-    unity.build_player("tool", "AndroidMobile", version="release-2026-09-27", run_number=7)
+    player_build.build_player("tool", "AndroidMobile", version="release-2026-09-27", run_number=7)
 
     rewritten = (project / "ProjectSettings" / "ProjectSettings.asset").read_text()
     assert "  bundleVersion: release-2026-09-27\n" in rewritten
@@ -72,10 +72,10 @@ def test_build_player_refuses_to_stamp_a_missing_field(tmp_path: Path, monkeypat
         tmp_path, PROJECT_SETTINGS.replace("  AndroidBundleVersionCode: 1\n", ""), builds=["AndroidMobile"]
     )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(unity, "run_unity_batchmode", fake_unity_build_producing)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
 
     with pytest.raises(SystemExit, match="AndroidBundleVersionCode"):
-        unity.build_player("tool", "AndroidMobile", version="0.2.7-dev+42", run_number=42)
+        player_build.build_player("tool", "AndroidMobile", version="0.2.7-dev+42", run_number=42)
 
 
 def test_build_player_fails_when_no_artifact_was_produced(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -83,10 +83,10 @@ def test_build_player_fails_when_no_artifact_was_produced(tmp_path: Path, monkey
     (project / "Build").mkdir()
     (project / "Build" / "Tool.apk").write_bytes(b"stale")
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(unity, "run_unity_batchmode", fake_unity_build_silent)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_silent)
 
     with pytest.raises(SystemExit, match="stale artifact"):
-        unity.build_player("tool", "AndroidMobile")
+        player_build.build_player("tool", "AndroidMobile")
 
 
 def test_unknown_project_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -94,7 +94,7 @@ def test_unknown_project_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="Unknown project 'nope'"):
-        unity.build_player("nope", "AndroidMobile")
+        player_build.build_player("nope", "AndroidMobile")
 
 
 def test_project_without_builds_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -102,7 +102,7 @@ def test_project_without_builds_fails(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="declares no builds"):
-        unity.build_player("tool", "AndroidMobile")
+        player_build.build_player("tool", "AndroidMobile")
 
 
 def test_unknown_build_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -110,7 +110,7 @@ def test_unknown_build_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="Unknown build 'win64'"):
-        unity.build_player("tool", "win64")
+        player_build.build_player("tool", "win64")
 
 
 def test_build_without_platform_config_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -118,16 +118,16 @@ def test_build_without_platform_config_fails(tmp_path: Path, monkeypatch: pytest
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="No platform config for build 'SteamDeck'"):
-        unity.build_player("tool", "SteamDeck")
+        player_build.build_player("tool", "SteamDeck")
 
 
 def test_build_player_environment_carries_the_entry_contract(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     RECEIVED_SESSIONS.clear()
     write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile"])
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(unity, "run_unity_batchmode", fake_unity_build_producing)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
 
-    unity.build_player(
+    player_build.build_player(
         "tool",
         "AndroidMobile",
         development=True,
@@ -149,8 +149,8 @@ def test_build_player_without_environment_sends_platform_and_development_only(
     RECEIVED_SESSIONS.clear()
     write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile"])
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(unity, "run_unity_batchmode", fake_unity_build_producing)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
 
-    unity.build_player("tool", "AndroidMobile")
+    player_build.build_player("tool", "AndroidMobile")
 
     assert RECEIVED_SESSIONS[0][1] == {"PLATFORM": "AndroidMobile", "DEVELOPMENT": "false"}
