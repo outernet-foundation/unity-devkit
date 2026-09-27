@@ -42,31 +42,30 @@ namespace Outernet
 
             EnvironmentShape shape = ResolveEnvironment(classPath);
             Debug.Log(
-                "ENVIRONMENT_DUMP "
-                    + JsonConvert.SerializeObject(
-                        new
-                        {
-                            class_name = shape.ClassType.FullName,
-                            mode_field = shape.ModeFieldName,
-                            target_path = shape.TargetPath,
-                            presets = shape.Presets,
-                            enums = shape
-                                .Fields.Where(leaf => leaf.FieldType.IsEnum)
-                                .Select(leaf => leaf.FieldType)
-                                .Distinct()
-                                .Select(type => new
-                                {
-                                    name = type.Name,
-                                    values = Enum.GetNames(type),
-                                    flags = type.IsDefined(typeof(FlagsAttribute), false),
-                                }),
-                            fields = shape.Fields.Select(leaf => new
+                JsonConvert.SerializeObject(
+                    new
+                    {
+                        class_name = shape.ClassType.FullName,
+                        mode_field = shape.ModeFieldName,
+                        target_path = shape.TargetPath,
+                        presets = shape.Presets,
+                        enums = shape
+                            .Fields.Where(leaf => leaf.FieldType.IsEnum)
+                            .Select(leaf => leaf.FieldType)
+                            .Distinct()
+                            .Select(type => new
                             {
-                                path = leaf.Path,
-                                field_type = leaf.FieldType.Name,
+                                name = type.Name,
+                                values = Enum.GetNames(type),
+                                flags = type.IsDefined(typeof(FlagsAttribute), false),
                             }),
-                        }
-                    )
+                        fields = shape.Fields.Select(leaf => new
+                        {
+                            path = leaf.Path,
+                            field_type = leaf.FieldType.Name,
+                        }),
+                    }
+                )
             );
         }
 
