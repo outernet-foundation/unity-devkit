@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Profile;
@@ -120,7 +118,6 @@ namespace Outernet
     public static class PlayerBuild
     {
         private const string WorkspaceDirectory = "Assets/_LocalWorkspace";
-        private const string WorkspaceResourcesDirectory = WorkspaceDirectory + "/Resources";
         private const string PlatformRecordPath = WorkspaceDirectory + "/platform.json";
 
         public static void Entry()
@@ -146,19 +143,11 @@ namespace Outernet
             }
 
             bool development = developmentValue == "true";
-            string fieldsJson = Environment.GetEnvironmentVariable("ENVIRONMENT_FIELDS");
-            Dictionary<string, string> environmentFields = string.IsNullOrEmpty(fieldsJson)
-                ? new Dictionary<string, string>()
-                : JsonConvert.DeserializeObject<Dictionary<string, string>>(fieldsJson)
-                    ?? new Dictionary<string, string>();
+            string environmentName = Environment.GetEnvironmentVariable("ENVIRONMENT") ?? "";
+            Dictionary<string, string> environmentFields = EnvironmentBuild.ReadEnvironmentFields();
 
             PlatformSpec spec = Platform.Find(platform);
             BuildConfig config = LoadConfig();
-            string environmentName = Environment.GetEnvironmentVariable("ENVIRONMENT");
-            if (string.IsNullOrEmpty(environmentName))
-            {
-                environmentName = config.EnvironmentConfig.DefaultPreset;
-            }
 
             Apply(spec, development, config, environmentName, environmentFields);
 
@@ -204,8 +193,7 @@ namespace Outernet
         )
         {
             ApplyPlatformFacts(spec, development);
-            ApplyEnvironment(config, environment);
-            ApplyFieldValues(config, environmentFields);
+            EnvironmentBuild.ApplyEnvironment(config.EnvironmentConfig, environment, environmentFields);
             ApplyXr(spec);
             PlatformOverrides overrides = PlatformFor(config, spec.Name);
             ApplyPipeline(overrides.RenderPipeline);
@@ -234,123 +222,6 @@ namespace Outernet
             Debug.Log(
                 $"[playerbuild] platform facts applied: {spec.Name} ({(development ? "development" : "release")})"
             );
-        }
-
-        public static void ApplyEnvironment(BuildConfig config, string environment)
-        {
-            if (string.IsNullOrEmpty(environment))
-            {
-                Debug.Log("[playerbuild] no environment selected — leaving workspace untouched");
-                return;
-            }
-
-            if (!config.EnvironmentConfig.Presets.TryGetValue(environment, out string source))
-            {
-                throw new BuildFailedException(
-                    $"Unknown environment '{environment}' (declared: {string.Join(", ", config.EnvironmentConfig.Presets.Keys)})"
-                );
-            }
-
-            if (!AssetDatabase.IsValidFolder(WorkspaceDirectory))
-            {
-                AssetDatabase.CreateFolder("Assets", "_LocalWorkspace");
-            }
-
-            if (!AssetDatabase.IsValidFolder(WorkspaceResourcesDirectory))
-            {
-                AssetDatabase.CreateFolder(WorkspaceDirectory, "Resources");
-            }
-
-            string targetPath = WorkspaceTargetPath(config);
-            CopySourceToWorkspace(source, targetPath);
-            Debug.Log($"[playerbuild] Applied environment '{environment}' -> {targetPath}");
-        }
-
-        public static string WorkspaceTargetPath(BuildConfig config)
-        {
-            return $"{WorkspaceResourcesDirectory}/{config.EnvironmentConfig.Target}";
-        }
-
-        public static void ApplyFieldValues(BuildConfig config, IReadOnlyDictionary<string, string> values)
-        {
-            if (values.Count == 0)
-            {
-                return;
-            }
-
-            string targetPath = WorkspaceTargetPath(config);
-            foreach (KeyValuePair<string, string> entry in values)
-            {
-                if (!config.EnvironmentConfig.Fields.TryGetValue(entry.Key, out EnvironmentField field))
-                {
-                    throw new BuildFailedException(
-                        $"Unknown environment field '{entry.Key}' (declared: {string.Join(", ", config.EnvironmentConfig.Fields.Keys)})"
-                    );
-                }
-
-                switch (field.Type)
-                {
-                    case EnvironmentFieldType.Boolean:
-                        if (entry.Value != "true" && entry.Value != "false")
-                        {
-                            throw new BuildFailedException(
-                                $"environment field '{entry.Key}' expects 'true' or 'false' — got '{entry.Value}'"
-                            );
-                        }
-
-                        break;
-                    case EnvironmentFieldType.Integer:
-                        if (!long.TryParse(entry.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
-                        {
-                            throw new BuildFailedException(
-                                $"environment field '{entry.Key}' expects an integer — got '{entry.Value}'"
-                            );
-                        }
-
-                        break;
-                    case EnvironmentFieldType.Enum:
-                        if (!field.Values.Contains(entry.Value))
-                        {
-                            throw new BuildFailedException(
-                                $"environment field '{entry.Key}' expects one of [{string.Join(", ", field.Values)}] — got '{entry.Value}'"
-                            );
-                        }
-
-                        break;
-                }
-            }
-
-            if (targetPath.EndsWith(".asset", StringComparison.OrdinalIgnoreCase))
-            {
-                ApplyAssetFieldValues(config, targetPath, values);
-                return;
-            }
-
-            JObject root = JObject.Parse(File.ReadAllText(targetPath));
-            foreach (KeyValuePair<string, string> entry in values)
-            {
-                EnvironmentField field = config.EnvironmentConfig.Fields[entry.Key];
-                JToken token = root.SelectToken(field.Path);
-                if (token == null)
-                {
-                    throw new BuildFailedException(
-                        $"environment field '{entry.Key}' path '{field.Path}' not found in '{targetPath}'"
-                    );
-                }
-
-                token.Replace(
-                    field.Type switch
-                    {
-                        EnvironmentFieldType.Boolean => new JValue(entry.Value == "true"),
-                        EnvironmentFieldType.Integer => new JValue(
-                            long.Parse(entry.Value, CultureInfo.InvariantCulture)
-                        ),
-                        _ => new JValue(entry.Value),
-                    }
-                );
-            }
-
-            File.WriteAllText(targetPath, root.ToString(Formatting.Indented));
         }
 
         public static void ApplyXr(PlatformSpec spec)
@@ -478,23 +349,12 @@ namespace Outernet
                 ?? throw new BuildFailedException($"platform record at {PlatformRecordPath} is empty — run Apply");
         }
 
-        public static SerializedProperty FindFieldProperty(SerializedObject serialized, EnvironmentField field)
-        {
-            string[] segments = field.Path.Split('.');
-            SerializedProperty property = serialized.FindProperty(segments[0]);
-            for (int index = 1; index < segments.Length && property != null; index++)
-            {
-                property = property.FindPropertyRelative(segments[index]);
-            }
-
-            return property;
-        }
-
         public static void Verify(BuildTarget platform)
         {
             PlatformRecord record = ReadPlatformRecord();
             PlatformSpec spec = Platform.Find(record.Platform);
-            PlatformOverrides overrides = PlatformFor(LoadConfig(), spec.Name);
+            BuildConfig config = LoadConfig();
+            PlatformOverrides overrides = PlatformFor(config, spec.Name);
             BuildProfile activeProfile = BuildProfile.GetActiveBuildProfile();
             string[] enabledScenes = EditorBuildSettings
                 .scenes.Where(scene => scene.enabled)
@@ -588,78 +448,6 @@ namespace Outernet
 
             Debug.Log("[playerbuild] OpenXR settings not yet loaded — building once more");
             return BuildPipeline.BuildPlayer(options);
-        }
-
-        private static void CopySourceToWorkspace(string source, string targetPath)
-        {
-            AssetDatabase.DeleteAsset(targetPath);
-            bool isAsset = source.EndsWith(".asset", StringComparison.OrdinalIgnoreCase);
-            if (isAsset && !AssetDatabase.CopyAsset(source, targetPath))
-            {
-                throw new BuildFailedException($"Failed to copy environment asset {source} -> {targetPath}");
-            }
-
-            if (!isAsset)
-            {
-                File.Copy(source, targetPath, true);
-            }
-
-            AssetDatabase.Refresh();
-        }
-
-        private static void ApplyAssetFieldValues(
-            BuildConfig config,
-            string targetPath,
-            IReadOnlyDictionary<string, string> values
-        )
-        {
-            UnityEngine.Object asset = AssetDatabase.LoadMainAssetAtPath(targetPath);
-            if (asset == null)
-            {
-                throw new BuildFailedException($"environment target asset not found at '{targetPath}'");
-            }
-
-            var serialized = new SerializedObject(asset);
-            foreach (KeyValuePair<string, string> entry in values)
-            {
-                EnvironmentField field = config.EnvironmentConfig.Fields[entry.Key];
-                SerializedProperty property = FindFieldProperty(serialized, field);
-                if (property == null)
-                {
-                    throw new BuildFailedException(
-                        $"environment field '{entry.Key}' path '{field.Path}' not found on '{targetPath}'"
-                    );
-                }
-
-                switch (field.Type)
-                {
-                    case EnvironmentFieldType.Boolean:
-                        property.boolValue = entry.Value == "true";
-                        break;
-                    case EnvironmentFieldType.Integer:
-                        property.longValue = long.Parse(entry.Value, CultureInfo.InvariantCulture);
-                        break;
-                    case EnvironmentFieldType.Enum:
-                    {
-                        int index = Array.IndexOf(property.enumNames, entry.Value);
-                        if (index < 0)
-                        {
-                            throw new BuildFailedException(
-                                $"environment field '{entry.Key}' expects one of [{string.Join(", ", property.enumNames)}] — got '{entry.Value}'"
-                            );
-                        }
-
-                        property.enumValueIndex = index;
-                        break;
-                    }
-                    default:
-                        property.stringValue = entry.Value;
-                        break;
-                }
-            }
-
-            serialized.ApplyModifiedProperties();
-            AssetDatabase.SaveAssets();
         }
 
         private static bool IsOpenXrNotLoaded(string text)

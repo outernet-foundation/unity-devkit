@@ -2,57 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using UnityEditor.Build;
 
 namespace Outernet
 {
-    [JsonConverter(typeof(StringEnumConverter))]
-    public enum EnvironmentFieldType
-    {
-        [EnumMember(Value = "string")]
-        String,
-
-        [EnumMember(Value = "boolean")]
-        Boolean,
-
-        [EnumMember(Value = "integer")]
-        Integer,
-
-        [EnumMember(Value = "enum")]
-        Enum,
-    }
-
-    public sealed class EnvironmentConfig
-    {
-        [JsonProperty("target", Required = Required.Always)]
-        public string Target { get; set; } = "";
-
-        [JsonProperty("default_preset")]
-        public string DefaultPreset { get; set; } = "";
-
-        [JsonProperty("presets", Required = Required.DisallowNull)]
-        public Dictionary<string, string> Presets { get; set; } = new();
-
-        [JsonProperty("fields")]
-        public Dictionary<string, EnvironmentField> Fields { get; set; } = new();
-    }
-
-    public sealed class EnvironmentField
-    {
-        [JsonProperty("name")]
-        public string Name { get; set; } = "";
-
-        [JsonProperty("path", Required = Required.Always)]
-        public string Path { get; set; } = "";
-
-        [JsonProperty("type", Required = Required.Always)]
-        public EnvironmentFieldType Type { get; set; }
-
-        [JsonProperty("values")]
-        public List<string> Values { get; set; }
-    }
-
     public sealed class PlatformOverrides
     {
         [JsonProperty("render_pipeline")]
@@ -64,8 +17,8 @@ namespace Outernet
 
     public sealed class BuildConfig
     {
-        [JsonProperty("environment_config", Required = Required.DisallowNull)]
-        public EnvironmentConfig EnvironmentConfig { get; set; } = new();
+        [JsonProperty("environment_config")]
+        public string EnvironmentConfig { get; set; } = "";
 
         [JsonProperty("platforms", Required = Required.DisallowNull)]
         public Dictionary<string, PlatformOverrides> Platforms { get; set; } = new();
@@ -74,31 +27,16 @@ namespace Outernet
         private void Validate(StreamingContext context)
         {
             if (
-                !string.IsNullOrEmpty(EnvironmentConfig.DefaultPreset)
-                && !EnvironmentConfig.Presets.ContainsKey(EnvironmentConfig.DefaultPreset)
+                EnvironmentConfig.Length > 0
+                && (
+                    !EnvironmentConfig.StartsWith("Assets/", StringComparison.Ordinal)
+                    || !EnvironmentConfig.EndsWith(".cs", StringComparison.Ordinal)
+                )
             )
             {
                 throw new BuildFailedException(
-                    $"default_preset '{EnvironmentConfig.DefaultPreset}' is not a declared preset (declared: {string.Join(", ", EnvironmentConfig.Presets.Keys)})"
+                    $"build-config.json field 'environment_config' must be a .cs project path starting with Assets/ — got '{EnvironmentConfig}'"
                 );
-            }
-
-            foreach (KeyValuePair<string, string> preset in EnvironmentConfig.Presets)
-            {
-                if (!preset.Value.StartsWith("Assets/", StringComparison.Ordinal))
-                {
-                    throw new BuildFailedException(
-                        $"build-config.json field 'presets[{preset.Key}]' must be a project path starting with Assets/ — got '{preset.Value}'"
-                    );
-                }
-            }
-
-            foreach (KeyValuePair<string, EnvironmentField> entry in EnvironmentConfig.Fields)
-            {
-                if (entry.Value.Type == EnvironmentFieldType.Enum && entry.Value.Values is not { Count: > 0 })
-                {
-                    throw new BuildFailedException($"fields[{entry.Key}] is an enum without a values list");
-                }
             }
 
             foreach (KeyValuePair<string, PlatformOverrides> entry in Platforms)
