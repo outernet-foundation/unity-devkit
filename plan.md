@@ -1369,6 +1369,14 @@ SHA to operator.
 **Phase 7 — Make-it-Sing flip** (old Phase MIS; amended): **executes on `Make-it-Sing-fork`**
 (session-13 ruling) — the flip lands and is smoke-tested E2E on the fork's default branch,
 then returns to MIS per the punt's one-PR consolidation; all items below are unchanged.
+**Fork-window revert ledger** — deltas that exist only for the fork's direct-to-main
+operating mode and must be stripped before the consolidation PR (anything else landing on
+the fork during the window is permanent and rides the PR unchanged): ci.yml's `main` push
+trigger (added session 14 so main-push work CI's on the fork; prime's dev→release-PR→main
+flow would double-build every merge and race release.yml's artifact fetch under it). When
+the release-trigger rework lands, it joins this ledger if and only if its shape is
+fork-only — a ci.yml-completion `workflow_run` trigger filtered to the main ref is
+portable both ways and stays.
 `UnityEnv` gains two members —
 `public static readonly Dictionary<ConfigMode, string> Presets` (keys = door spellings;
 `airgapped`, not `air-gapped`) and `public const string TargetPath =
