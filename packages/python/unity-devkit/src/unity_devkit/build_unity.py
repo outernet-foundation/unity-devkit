@@ -41,15 +41,12 @@ def main(
     environment_preset: Annotated[
         str, typer.Option(help="Environment preset name; empty leaves the workspace untouched")
     ] = "",
-    development: Annotated[str, typer.Option(help="Development build column: 'true' or 'false'")] = "false",
+    development: Annotated[bool, typer.Option("--development", help="Development build column")] = False,
     environment_fields: Annotated[
         str, typer.Option(help="Newline-separated path=value environment field overrides")
     ] = "",
 ) -> None:
     settings = Settings.model_validate({})
-
-    if development not in ("true", "false"):
-        raise SystemExit(f"--development must be 'true' or 'false' — got '{development}'")
     fields = parse_environment_fields(environment_fields.splitlines())
 
     with ci_step("Setup"):
@@ -83,7 +80,7 @@ def main(
             full_version = stamp_build_version(unity_project_path, tag_prefix, run_number, release=(branch == "main"))
             print(f"Stamped bundleVersion {full_version} (bundleVersionCode={run_number}) into ProjectSettings")
 
-        env = playerbuild_environment(playerbuild_platform, development == "true", environment_preset, fields)
+        env = playerbuild_environment(playerbuild_platform, development, environment_preset, fields)
         run_unity_batchmode(
             unity_project_path, f"{build_flag} -executeMethod {execute_method}", nographics=False, env=env
         )

@@ -87,7 +87,7 @@ jobs:
             --branch ${{ github.head_ref || github.ref_name }} \
             --registry "$CACHE_REGISTRY" \
             --environment-preset "${{ inputs['environment-preset'] }}" \
-            --development ${{ inputs.development }} \
+            ${{ inputs.development && '--development' || '' }} \
             --environment-fields "$ENVIRONMENT_FIELDS_INPUT"
 
       - name: Upload Build Artifacts
