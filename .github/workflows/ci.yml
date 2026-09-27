@@ -45,7 +45,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: ./.github/workflows/unity-check.yml
+    uses: ./.github/workflows/compile-check-unity.yml
     with:
       runner-labels: '["self-hosted","unity"]'
       execute-method: Outernet.EnvironmentFixtureSelfTest.Run

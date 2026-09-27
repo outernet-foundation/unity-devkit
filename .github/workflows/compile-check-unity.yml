@@ -1,14 +1,14 @@
-name: Unity Check
+name: Compile Check Unity
 
 on:
   workflow_call:
     inputs:
       runner-labels:
-        description: JSON-encoded runs-on value (string or array) for the license/check jobs
+        description: JSON-encoded runs-on value (string or array) for the license/compile-check jobs
         type: string
         default: '"ubuntu-latest"'
       execute-method:
-        description: Optional Class.Method run in a second check-unity session after the compile gate
+        description: Optional Class.Method run in a second compile-check-unity session after the compile gate
         type: string
         default: ''
     secrets:
@@ -24,15 +24,15 @@ env:
 
 jobs:
   prepare:
-    uses: ./.github/workflows/unity-prepare.yml
+    uses: ./.github/workflows/prepare-unity.yml
     with:
       runner-labels: ${{ inputs.runner-labels }}
-      matrix-command: uv run --no-sync unity-check-matrix
+      matrix-command: uv run --no-sync compile-check-unity-matrix
     secrets: inherit
 
-  check-unity:
+  compile-check-unity:
     needs: [prepare]
-    name: ${{ matrix.project-name }} (check)
+    name: ${{ matrix.project-name }} (compile-check)
     runs-on: ${{ fromJSON(inputs.runner-labels) }}
     permissions:
       contents: read
@@ -59,8 +59,8 @@ jobs:
           unity-serial: ${{ secrets.UNITY_SERIAL }}
 
       - name: Compile check
-        run: uv run --no-sync check-unity --project ${{ matrix.project-name }}
+        run: uv run --no-sync compile-check-unity --project ${{ matrix.project-name }}
 
       - name: Execute method
         if: ${{ inputs.execute-method != '' }}
-        run: uv run --no-sync check-unity --project ${{ matrix.project-name }} --execute-method ${{ inputs.execute-method }}
+        run: uv run --no-sync compile-check-unity --project ${{ matrix.project-name }} --execute-method ${{ inputs.execute-method }}

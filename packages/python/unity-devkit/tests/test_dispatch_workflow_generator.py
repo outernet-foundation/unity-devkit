@@ -14,7 +14,7 @@ from unity_devkit.unity import playerbuild_environment, parse_environment_fields
 
 FIXTURE_DUMP = Path(__file__).parent / "fixtures" / "environment-dump.json"
 PINNED_BUILD_WORKFLOW = (
-    "outernet-foundation/unity-devkit/.github/workflows/unity-build.yml@cfd487e0e19b3d98046a2680a210137ec0d32832"
+    "outernet-foundation/unity-devkit/.github/workflows/build-unity.yml@cfd487e0e19b3d98046a2680a210137ec0d32832"
 )
 
 

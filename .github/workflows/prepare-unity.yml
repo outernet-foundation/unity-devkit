@@ -1,4 +1,4 @@
-name: Unity Prepare
+name: Prepare Unity
 
 on:
   workflow_call:

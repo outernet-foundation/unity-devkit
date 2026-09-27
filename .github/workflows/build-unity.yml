@@ -1,4 +1,4 @@
-name: Unity Build
+name: Build Unity
 
 on:
   workflow_call:
@@ -36,13 +36,13 @@ env:
 
 jobs:
   prepare:
-    uses: ./.github/workflows/unity-prepare.yml
+    uses: ./.github/workflows/prepare-unity.yml
     with:
       runner-labels: ${{ inputs.runner-labels }}
-      matrix-command: uv run --no-sync unity-matrix
+      matrix-command: uv run --no-sync build-unity-matrix
     secrets: inherit
 
-  build-unity:
+  ci-build-unity:
     needs: [prepare]
     name: ${{ matrix.project-name }} (${{ matrix.platform }})
     runs-on: ${{ fromJSON(inputs.runner-labels) }}
@@ -82,7 +82,7 @@ jobs:
           LICENSE_CACHE_TAG: ${{ needs.prepare.outputs.cache-tag }}
           ENVIRONMENT_FIELDS_INPUT: ${{ inputs.environment-fields }}
         run: |
-          uv run --no-sync build-unity \
+          uv run --no-sync ci-build-unity \
             --project ${{ matrix.project-name }} \
             --project-path ${{ matrix.project }} \
             --platform ${{ matrix.platform }} \

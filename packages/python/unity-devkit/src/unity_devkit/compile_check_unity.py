@@ -10,7 +10,7 @@ COMPILE_ERROR_SIGNATURES = ("error CS",)
 
 
 @app.command()
-def check_unity(
+def compile_check_unity(
     project: Annotated[str, typer.Option(help="Unity project name (catalog key in unity-devkit.json)")],
     execute_method: Annotated[
         str | None,

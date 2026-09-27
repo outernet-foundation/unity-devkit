@@ -37,7 +37,7 @@ def main(
             "--build",
             "-B",
             help=(
-                "Compile the project locally via `compile-unity` and install the produced APK / "
+                "Build the project locally via `build-unity` and install the produced APK / "
                 "linux executable. Skips the GitHub Actions artifact lookup; --branch / --run are ignored."
             ),
         ),

@@ -5,7 +5,7 @@ from typing import Annotated
 import typer
 from pydantic import BaseModel, ConfigDict
 
-from .check_unity import COMPILE_ERROR_SIGNATURES
+from .compile_check_unity import COMPILE_ERROR_SIGNATURES
 from .projects import load_catalog
 from .unity import prepare_unity_project, run_unity_batchmode
 
@@ -61,8 +61,8 @@ def unity_dispatch(
     build_workflow: Annotated[
         str,
         typer.Option(
-            help="The build job's uses: value — the consumer's pinned unity-build.yml reference "
-            "(owner/repo/.github/workflows/unity-build.yml@sha, or ./.github/workflows/unity-build.yml inside unity-devkit)"
+            help="The build job's uses: value — the consumer's pinned build-unity.yml reference "
+            "(owner/repo/.github/workflows/build-unity.yml@sha, or ./.github/workflows/build-unity.yml inside unity-devkit)"
         ),
     ],
     environment_config_class: Annotated[

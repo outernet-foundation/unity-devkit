@@ -19,7 +19,7 @@ def test_matrix_emits_entries_from_catalog(
     write_repository(tmp_path, {"path": "apps/Tool", "builds": ["Linux"]})
     monkeypatch.chdir(tmp_path)
 
-    matrix.main()
+    matrix.build_matrix()
 
     lines = capsys.readouterr().out.splitlines()
     include = json.loads(lines[0][len("matrix=") :])["include"]
@@ -41,7 +41,7 @@ def test_matrix_fails_without_builds(tmp_path: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="No projects with builds declared"):
-        matrix.main()
+        matrix.build_matrix()
 
 
 def test_check_matrix_includes_path_only_projects(
@@ -50,7 +50,7 @@ def test_check_matrix_includes_path_only_projects(
     write_repository(tmp_path, {"path": "apps/Tool"})
     monkeypatch.chdir(tmp_path)
 
-    matrix.check_matrix()
+    matrix.compile_check_matrix()
 
     lines = capsys.readouterr().out.splitlines()
     include = json.loads(lines[0][len("matrix=") :])["include"]
