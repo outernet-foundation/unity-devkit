@@ -117,7 +117,7 @@ Phase 5 executed in full: the Python half plus the release preparation. Landed:
   `--check` regenerates and diffs — the F20 drift gate for consumer CI. The transport forwards only
   non-empty inputs (per-field `inputs['id'] != '' && format('path={0}', …) || ''` lines); boolean fields
   transport only when checked (checkbox = opt-in override; forcing false goes through the CLI door).
-- **Tests** (44, up from 27): generator render assertions (dedup, type mapping, bracket refs, transport
+- **Tests** (43, up from 27): generator render assertions (dedup, type mapping, bracket refs, transport
   lines, cap, unknown type, determinism, pinned `--build-workflow` uses/header, YAML validity via
   pyyaml — added to the root dev group,
   test-only), extraction, field parse, child-env contract, and the build-target resolve. The fixture dump
@@ -129,7 +129,7 @@ Proven live in this sandbox, not just by tests: the dump door through `check-uni
 (generated workflow eyeballed: choice/checkbox/number/flags rows, dedup, `${{ }}` expressions intact —
 an f-string collapsing `{{`→`{` was caught and fixed by rendering transport lines through
 concatenation); `--check` green on the same file, red on a one-line drift. Gates: ruff, basedpyright,
-pytest 44, `check-unity` compile + env self-test green, CSharpier clean (no C# deltas — Python-only
+pytest 43, `check-unity` compile + env self-test green, CSharpier clean (no C# deltas — Python-only
 phase). Docs: AGENTS.md gained the `unity-dispatch`/`build-unity` rows and the environment-transport
 constraint; README command catalog updated.
 
@@ -156,15 +156,32 @@ spelling (`AndroidMobile`, `MagicLeap2`), killing the `playerbuild_platform` map
 `build_target` holding the bare editor target (`Android`, `StandaloneLinux64`, `Win64`) with
 `-buildTarget` composed at the two call sites, matching `check-unity`'s existing `--build-target`
 vocabulary. `PLATFORM` rides every child env — inert for consumer-owned entries, loud under Entry
-misuse. Consumer fallout (all pre-release, all local-unpushed): CT and MIS catalogs re-keyed; artifact
-names change case (`CaptureTool-AndroidMobile`); ORAS cache tags miss once.
+misuse. The unityci image-module field became `unityci_image_module` (emitted matrix key
+`unityci-image-module` — unconsumed by any hosted workflow, verified), and `LICENSE_MODULE` became
+`LICENSE_IMAGE_MODULE`. Consumer fallout (all pre-release, all local-unpushed): CT and MIS catalogs
+re-keyed (CT `9df7ae9` on dev, 5 ahead; MIS `6cd6ae7` on dev, 4 ahead — MIS's unrelated dirty
+`.env.airgapped` left uncommitted); artifact names change case (`CaptureTool-AndroidMobile`); ORAS
+cache tags miss once.
 
-The release (one devkit release carrying both registries) rides the operator push: 31 commits local on
-main (29 prior, plus the owner's mid-session `b7b77fd`/`2559e0a` window-fix pair) → push → CI → `release.yml` publishes PyPI `unity-devkit` + npm `org.outernet.playerbuild` (path-
-diff covers `packages/python/unity-devkit`; the hosted workflow edits ride the SHA pin, not a ledger).
-CT's gated remainder then rides the release: CI `--environment-preset` migration + ci.yml input fix, npm pin
-swap for the local `file:` pin, dispatch workflow generation + drift gate, APK smoke, the Phase 1
-acceptance probe. Phase 6's flip list otherwise unchanged.
+The release (one devkit release carrying both registries) rides the operator push: main is 45 ahead of
+origin (31 entering the session — 29 prior plus the owner's mid-session `b7b77fd`/`2559e0a` window-fix
+pair — then this session's 13 rename/feature commits `af1cd5a`..`e19a5cb` in code/prose pairs, plus this
+close) → push → CI → `release.yml` publishes PyPI `unity-devkit` + npm `org.outernet.playerbuild`
+(path-diff covers `packages/python/unity-devkit`; the hosted workflow edits ride the SHA pin, not a
+ledger). CT's gated remainder then rides the release: CI `--environment-preset` migration + ci.yml input
+fix, npm pin swap for the local `file:` pin, dispatch workflow generation + drift gate, APK smoke, the
+Phase 1 acceptance probe. Phase 6's flip list otherwise unchanged.
+
+Pinned for the next session (owner-approved, deliberately not executed at close): rename `dispatch.py`
+→ `dispatch_generator.py` — the current name reads as a message/event dispatcher; the file is the
+dispatch-workflow generator, and "dispatch generator" is this plan's own vocabulary throughout. Verb
+stays `unity-dispatch`; entry point becomes `unity_devkit.dispatch_generator:app`; pyproject script
+line, AGENTS table row, and the session-record mentions follow. Zero behavior change; do it before the
+operator push freezes nothing (module paths aren't pinned API), but it rides the same release for
+tidiness.
+
+Next session: the pinned rename first, then verify the operator pushed and the release landed
+(both registries), then CT's gated remainder per Phase 6.
 
 ## Status (2026-09-27, session 8 close — pane NRE root-caused and fixed)
 
