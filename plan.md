@@ -947,6 +947,16 @@ Environment amendments (2026-09-27, session 2):
   `UnityEnvInspector → stub` item — reversed (survive) and upgraded to
   delete-and-subsume respectively.
 
+Catalog schema amendment (2026-09-27, session 10): the per-build `execute_methods` map dies with
+the flips — Entry's env-var transport owns platform discrimination, so every consumer's map
+degenerates to `{build: "Outernet.PlayerBuild.Entry"}` (keys duplicating `builds`, zero
+information); the constant inlines at `resolve_unity_build`'s single lookup and the field leaves
+the schema. The field is Optional, so keyless catalogs load against old and new devkit alike — the
+ordering constraint runs the other way: a keyless catalog under a devkit that still has the field
+fails the missing-method guard at build time, so the deletion must be released before consumers
+drop the key. Accepted loss: the field was the last escape hatch for a bespoke consumer entry —
+ruled YAGNI (re-adding what the package exists to own).
+
 Everything profiles-spine is superseded by this rewrite: Build Profile assets shipped in
 the package; the authoring pipeline (table → profile regeneration, bootstrap-by-copy,
 two-pass load-bound sessions, self-heal strip, drift gate, pair validation);
@@ -1014,10 +1024,20 @@ conversion): write
 committed preset asset carrying today's `airgapped-settings.json` values; rewire
 `SettingsManager`'s baked branch from `TextAsset`+SimpleJSON to
 `Resources.Load<CaptureEnv>` seeding `SettingsState` (the `persistentDataPath`
-write-back chain stays untouched); delete `airgapped-settings.json`. Then: npm-pin the
+write-back chain stays untouched); delete `airgapped-settings.json`. Devkit-side prerequisite
+(2026-09-27 amendment, session 10): **delete `execute_methods` from the catalog schema** —
+`Outernet.PlayerBuild.Entry` is the one canonical entrypoint (parameterless; platform rides
+`PLATFORM`), so the per-build map is degenerate the moment both flips land; inline the constant at
+`resolve_unity_build`'s single lookup, shrink its 3-tuple, delete the missing-method guard, tests
+follow. Sequencing: the field is Optional, so keyless catalogs always load — but a keyless catalog
+run against a devkit that still has the field dies at the missing-method guard, so the deletion must
+be on PyPI before consumer catalogs drop the key. It rides the same release CT's remainder gates on
+if implemented before the operator push; if the push has already fired, it rides the next release
+and CT's key-drop splits into a follow-up. Then: npm-pin the
 package; `build-config.json` with the class-path `environment_config` +
 `platforms["AndroidMobile"]`; migrate CI `--build-env CONFIG_TYPE=default` →
-`--environment-preset`; catalog entry → the single executeMethod; generate the dispatch-wrapper
+`--environment-preset`; catalog entry drops `execute_methods` (keyless per the deletion above);
+generate the dispatch-wrapper
 workflow; delete `Assets/Editor/BuildScript.cs`; `compile-unity` local build; APK smoke
 (`aapt` versionName/Code vs the stamp); the open Phase 1 acceptance probe
 (hand-vandalize an applied global, build, expect the loud "run Apply" preprocessor
@@ -1030,8 +1050,8 @@ SHA to operator.
 "Assets/_LocalWorkspace/Resources/UnityEnv.asset"`; re-save both canonical presets (F21
 stale `room:` shape). **`ConfigMode` + `ResolveEffective` survive — no deletion** (owner
 reversal). **Delete `UnityEnvInspector.cs`** (subsumed — F34; stub fallback on record).
-Both platforms with pipeline assets; `--build-env` migration; catalog → executeMethod;
-dispatch workflow; define renames in app code (`OUTERNET_*`); delete
+Both platforms with pipeline assets; `--build-env` migration; catalog goes keyless directly
+(`execute_methods` deleted outright — MIS never carries the collapsed map); dispatch workflow; define renames in app code (`OUTERNET_*`); delete
 `Assets/Settings/Build Profiles/Magic Leap 2.asset` (F19); delete the
 `Build > Configure` menu items and `BuildScript.cs`'s configure functions; **rewire
 `CreateAssetBundles.cs` + `AssetBundleManagerWindow.cs` to the package's apply + verify
