@@ -25,6 +25,7 @@ PLATFORM_CONFIGS: dict[str, PlatformConfig] = {
 
 UNITYCI_IMAGE_REVISION = "3"
 LICENSE_IMAGE_MODULE = "linux-il2cpp"
+PLAYERBUILD_ENTRY = "Outernet.PlayerBuild.Entry"
 
 # Unity exits 0 while reporting fatal package-manager errors only in the editor log. Every
 # Unity invocation goes through run_unity_batchmode, which scans the captured log for these
@@ -140,7 +141,7 @@ def editor_version(project_path: Path) -> str | None:
     return None
 
 
-def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str, str]:
+def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str]:
     projects = load_catalog()
     if project not in projects:
         raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
@@ -154,16 +155,10 @@ def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str, st
     if build not in valid_builds:
         raise SystemExit(f"Unknown build '{build}' for project '{project}'. Valid: {', '.join(valid_builds)}")
 
-    execute_method = (project_config.execute_methods or {}).get(build)
-    if not execute_method:
-        raise SystemExit(
-            f"No execute method for '{build}' — declare it under 'execute_methods' for '{project}' in unity-devkit.json"
-        )
-
     if build not in PLATFORM_CONFIGS:
         raise SystemExit(f"No platform config for build '{build}'. Valid: {', '.join(PLATFORM_CONFIGS)}")
 
-    return project_config, PLATFORM_CONFIGS[build]["build_target"], execute_method
+    return project_config, PLATFORM_CONFIGS[build]["build_target"]
 
 
 def prepare_unity_project(project_path: Path) -> None:

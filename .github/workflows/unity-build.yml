@@ -19,6 +19,10 @@ on:
         description: Newline-separated path=value environment field overrides
         type: string
         default: ''
+      version:
+        description: Version string to stamp into ProjectSettings before the build; empty builds unversioned
+        type: string
+        default: ''
     secrets:
       UNITY_EMAIL:
         required: true
@@ -86,6 +90,7 @@ jobs:
             --run-number ${{ github.run_number }} \
             --branch ${{ github.head_ref || github.ref_name }} \
             --registry "$CACHE_REGISTRY" \
+            ${{ inputs.version && format('--version {0}', inputs.version) || '' }} \
             --environment-preset "${{ inputs['environment-preset'] }}" \
             ${{ inputs.development && '--development' || '' }} \
             --environment-fields "$ENVIRONMENT_FIELDS_INPUT"

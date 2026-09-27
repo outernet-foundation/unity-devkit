@@ -22,7 +22,7 @@ def create_unity_project(root: Path, relative: str) -> Path:
 
 def test_catalog_entry_loads_with_intent_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     create_unity_project(tmp_path, "Alpha")
-    write_catalog(tmp_path, {"Alpha": {"path": "Alpha", "builds": ["Linux"], "tag_prefix": "alpha"}})
+    write_catalog(tmp_path, {"Alpha": {"path": "Alpha", "builds": ["Linux"]}})
     monkeypatch.chdir(tmp_path)
 
     projects = load_catalog()
@@ -30,7 +30,6 @@ def test_catalog_entry_loads_with_intent_fields(tmp_path: Path, monkeypatch: pyt
     assert set(projects) == {"Alpha"}
     assert projects["Alpha"].path == Path.cwd() / "Alpha"
     assert projects["Alpha"].builds == ["Linux"]
-    assert projects["Alpha"].tag_prefix == "alpha"
 
 
 def test_catalog_name_is_decoupled_from_directory_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

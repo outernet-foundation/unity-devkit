@@ -13,6 +13,7 @@ from .license_restore import restore_license
 from ci_devkit.setup import configure_git, install_dotnet
 from ci_devkit.setup_oras import install_oras
 from .unity import (
+    PLAYERBUILD_ENTRY,
     playerbuild_environment,
     parse_environment_fields,
     prepare_unity_project,
@@ -45,6 +46,9 @@ def main(
     environment_fields: Annotated[
         str, typer.Option(help="Newline-separated path=value environment field overrides")
     ] = "",
+    version: Annotated[
+        str, typer.Option(help="Version string to stamp into ProjectSettings.asset; empty builds unversioned")
+    ] = "",
 ) -> None:
     settings = Settings.model_validate({})
     fields = parse_environment_fields(environment_fields.splitlines())
@@ -64,7 +68,7 @@ def main(
         restore(registry, "unity-library", tag, Path("."), fallback_tags=fallback_tags)
 
     with ci_step("Prepare build"):
-        project_config, build_target, execute_method = resolve_unity_build(project, platform)
+        project_config, build_target = resolve_unity_build(project, platform)
         unity_project_path = project_config.path
         if unity_project_path.resolve() != project_path.resolve():
             raise SystemExit(
@@ -75,15 +79,14 @@ def main(
         prepare_unity_project(unity_project_path)
 
     with ci_step(f"Build {project} [{platform}]"):
-        tag_prefix = project_config.tag_prefix
-        if tag_prefix:
-            full_version = stamp_build_version(unity_project_path, tag_prefix, run_number, release=(branch == "main"))
-            print(f"Stamped bundleVersion {full_version} (bundleVersionCode={run_number}) into ProjectSettings")
+        if version:
+            stamped = stamp_build_version(unity_project_path, version, run_number)
+            print(f"Stamped bundleVersion {stamped} (bundleVersionCode={run_number}) into ProjectSettings")
 
         env = playerbuild_environment(platform, development, environment_preset, fields)
         run_unity_batchmode(
             unity_project_path,
-            f"-buildTarget {build_target} -executeMethod {execute_method}",
+            f"-buildTarget {build_target} -executeMethod {PLAYERBUILD_ENTRY}",
             nographics=False,
             env=env,
         )

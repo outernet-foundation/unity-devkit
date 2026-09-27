@@ -14,8 +14,6 @@ class CatalogEntry(BaseModel):
 
     path: Path
     builds: list[str] | None = None
-    execute_methods: dict[str, str] | None = None
-    tag_prefix: str | None = None
 
     @field_validator("path")
     @classmethod

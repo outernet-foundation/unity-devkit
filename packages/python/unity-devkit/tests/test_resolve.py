@@ -14,7 +14,7 @@ def write_repository(tmp_path: Path, entry: dict[str, object]) -> None:
 
 
 def test_unknown_project_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    write_repository(tmp_path, {"path": "Tool", "builds": ["Linux"], "execute_methods": {"Linux": "Tool.Build"}})
+    write_repository(tmp_path, {"path": "Tool", "builds": ["Linux"]})
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="Unknown project 'nope'"):
@@ -30,27 +30,18 @@ def test_project_without_builds_fails(tmp_path: Path, monkeypatch: pytest.Monkey
 
 
 def test_unknown_build_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    write_repository(tmp_path, {"path": "Tool", "builds": ["Linux"], "execute_methods": {"Linux": "Tool.Build"}})
+    write_repository(tmp_path, {"path": "Tool", "builds": ["Linux"]})
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="Unknown build 'win64'"):
         resolve_unity_build("tool", "win64")
 
 
-def test_missing_execute_method_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_returns_build_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     write_repository(tmp_path, {"path": "Tool", "builds": ["Linux"]})
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(SystemExit, match="No execute method"):
-        resolve_unity_build("tool", "Linux")
-
-
-def test_resolve_returns_build_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    write_repository(tmp_path, {"path": "Tool", "builds": ["Linux"], "execute_methods": {"Linux": "Tool.Build"}})
-    monkeypatch.chdir(tmp_path)
-
-    project_config, build_target, execute_method = resolve_unity_build("tool", "Linux")
+    project_config, build_target = resolve_unity_build("tool", "Linux")
 
     assert project_config.path == Path.cwd() / "Tool"
     assert build_target == "StandaloneLinux64"
-    assert execute_method == "Tool.Build"
