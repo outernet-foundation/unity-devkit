@@ -18,7 +18,7 @@ app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 @app.command()
 def compile_unity(
     project: Annotated[str, typer.Option(help="Unity project name (catalog key in unity-devkit.json)")],
-    build: Annotated[str, typer.Option(help="Build target from the project's builds list (e.g. android-mobile)")],
+    build: Annotated[str, typer.Option(help="Build target from the project's builds list (e.g. AndroidMobile)")],
     stamp_version: Annotated[
         bool, typer.Option("--stamp-version", help="Stamp the tag-ledger version into ProjectSettings.asset")
     ] = False,
@@ -58,7 +58,7 @@ def build_unity_project(
     environment_preset: str = "",
     environment_fields: dict[str, str] | None = None,
 ) -> list[Path]:
-    project_config, build_flag, execute_method, playerbuild_platform = resolve_unity_build(project, build)
+    project_config, build_target, execute_method = resolve_unity_build(project, build)
     project_path = project_config.path
     prepare_unity_project(project_path)
 
@@ -72,8 +72,10 @@ def build_unity_project(
     build_directory = project_path / "Build"
     before = snapshot_artifacts(build_directory)
 
-    env = playerbuild_environment(playerbuild_platform, development, environment_preset, environment_fields or {})
-    run_unity_batchmode(project_path, f"{build_flag} -executeMethod {execute_method}", nographics=False, env=env)
+    env = playerbuild_environment(build, development, environment_preset, environment_fields or {})
+    run_unity_batchmode(
+        project_path, f"-buildTarget {build_target} -executeMethod {execute_method}", nographics=False, env=env
+    )
 
     after = snapshot_artifacts(build_directory)
     produced = sorted(path for path, modification_time in after.items() if before.get(path) != modification_time)

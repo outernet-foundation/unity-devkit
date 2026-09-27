@@ -173,7 +173,7 @@ def test_playerbuild_environment_carries_the_entry_contract() -> None:
     }
 
 
-def test_playerbuild_environment_empty_is_development_only() -> None:
-    env = playerbuild_environment("", development=False, environment_preset="", fields={})
+def test_playerbuild_environment_without_preset_is_platform_and_development_only() -> None:
+    env = playerbuild_environment("Linux", development=False, environment_preset="", fields={})
 
-    assert env == {"DEVELOPMENT": "false"}
+    assert env == {"PLATFORM": "Linux", "DEVELOPMENT": "false"}

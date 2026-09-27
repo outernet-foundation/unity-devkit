@@ -64,7 +64,7 @@ def main(
         restore(registry, "unity-library", tag, Path("."), fallback_tags=fallback_tags)
 
     with ci_step("Prepare build"):
-        project_config, build_flag, execute_method, playerbuild_platform = resolve_unity_build(project, platform)
+        project_config, build_target, execute_method = resolve_unity_build(project, platform)
         unity_project_path = project_config.path
         if unity_project_path.resolve() != project_path.resolve():
             raise SystemExit(
@@ -80,9 +80,12 @@ def main(
             full_version = stamp_build_version(unity_project_path, tag_prefix, run_number, release=(branch == "main"))
             print(f"Stamped bundleVersion {full_version} (bundleVersionCode={run_number}) into ProjectSettings")
 
-        env = playerbuild_environment(playerbuild_platform, development, environment_preset, fields)
+        env = playerbuild_environment(platform, development, environment_preset, fields)
         run_unity_batchmode(
-            unity_project_path, f"{build_flag} -executeMethod {execute_method}", nographics=False, env=env
+            unity_project_path,
+            f"-buildTarget {build_target} -executeMethod {execute_method}",
+            nographics=False,
+            env=env,
         )
 
     with ci_step("Save library cache"):
@@ -98,7 +101,7 @@ def main(
         if build_directory.is_dir():
             artifact_directory = Path("/tmp/unity-builds")
             artifact_directory.mkdir(parents=True, exist_ok=True)
-            if platform == "linux64":
+            if platform == "Linux":
                 shutil.copytree(build_directory, artifact_directory, dirs_exist_ok=True)
             else:
                 for file in build_directory.rglob("*"):

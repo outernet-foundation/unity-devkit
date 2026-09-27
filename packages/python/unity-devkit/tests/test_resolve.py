@@ -14,11 +14,11 @@ def write_repository(tmp_path: Path, entry: dict[str, object]) -> None:
 
 
 def test_unknown_project_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    write_repository(tmp_path, {"path": "Tool", "builds": ["linux64"], "execute_methods": {"linux64": "Tool.Build"}})
+    write_repository(tmp_path, {"path": "Tool", "builds": ["Linux"], "execute_methods": {"Linux": "Tool.Build"}})
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="Unknown project 'nope'"):
-        resolve_unity_build("nope", "linux64")
+        resolve_unity_build("nope", "Linux")
 
 
 def test_project_without_builds_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -26,11 +26,11 @@ def test_project_without_builds_fails(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="declares no builds"):
-        resolve_unity_build("tool", "linux64")
+        resolve_unity_build("tool", "Linux")
 
 
 def test_unknown_build_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    write_repository(tmp_path, {"path": "Tool", "builds": ["linux64"], "execute_methods": {"linux64": "Tool.Build"}})
+    write_repository(tmp_path, {"path": "Tool", "builds": ["Linux"], "execute_methods": {"Linux": "Tool.Build"}})
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="Unknown build 'win64'"):
@@ -38,31 +38,19 @@ def test_unknown_build_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_missing_execute_method_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    write_repository(tmp_path, {"path": "Tool", "builds": ["linux64"]})
+    write_repository(tmp_path, {"path": "Tool", "builds": ["Linux"]})
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="No execute method"):
-        resolve_unity_build("tool", "linux64")
+        resolve_unity_build("tool", "Linux")
 
 
-def test_resolve_returns_platform_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    write_repository(tmp_path, {"path": "Tool", "builds": ["linux64"], "execute_methods": {"linux64": "Tool.Build"}})
+def test_resolve_returns_build_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    write_repository(tmp_path, {"path": "Tool", "builds": ["Linux"], "execute_methods": {"Linux": "Tool.Build"}})
     monkeypatch.chdir(tmp_path)
 
-    project_config, build_flag, execute_method, playerbuild_platform = resolve_unity_build("tool", "linux64")
+    project_config, build_target, execute_method = resolve_unity_build("tool", "Linux")
 
     assert project_config.path == Path.cwd() / "Tool"
-    assert build_flag == "-buildTarget StandaloneLinux64"
+    assert build_target == "StandaloneLinux64"
     assert execute_method == "Tool.Build"
-    assert playerbuild_platform == ""
-
-
-def test_resolve_returns_playerbuild_platform(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    write_repository(
-        tmp_path, {"path": "Tool", "builds": ["magicleap"], "execute_methods": {"magicleap": "Tool.Build"}}
-    )
-    monkeypatch.chdir(tmp_path)
-
-    _, _, _, playerbuild_platform = resolve_unity_build("tool", "magicleap")
-
-    assert playerbuild_platform == "MagicLeap2"

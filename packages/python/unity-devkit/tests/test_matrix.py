@@ -16,9 +16,7 @@ def write_repository(tmp_path: Path, entry: dict[str, object]) -> None:
 def test_matrix_emits_entries_from_catalog(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    write_repository(
-        tmp_path, {"path": "apps/Tool", "builds": ["linux64"], "execute_methods": {"linux64": "Tool.Build"}}
-    )
+    write_repository(tmp_path, {"path": "apps/Tool", "builds": ["Linux"], "execute_methods": {"Linux": "Tool.Build"}})
     monkeypatch.chdir(tmp_path)
 
     matrix.main()
@@ -30,7 +28,7 @@ def test_matrix_emits_entries_from_catalog(
             "project": str(Path("apps") / "Tool"),
             "project-name": "tool",
             "cache-key": "tool",
-            "platform": "linux64",
+            "platform": "Linux",
             "unityci-image-module": "linux-il2cpp",
             "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3",
         }

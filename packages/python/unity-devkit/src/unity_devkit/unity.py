@@ -12,32 +12,15 @@ from .projects import CatalogEntry, load_catalog
 
 
 class PlatformConfig(TypedDict):
-    build_flag: str
+    build_target: str
     unityci_image_module: str
-    playerbuild_platform: str
 
 
 PLATFORM_CONFIGS: dict[str, PlatformConfig] = {
-    "android-mobile": {
-        "build_flag": "-buildTarget Android",
-        "unityci_image_module": "android",
-        "playerbuild_platform": "AndroidMobile",
-    },
-    "magicleap": {
-        "build_flag": "-buildTarget Android",
-        "unityci_image_module": "android",
-        "playerbuild_platform": "MagicLeap2",
-    },
-    "linux64": {
-        "build_flag": "-buildTarget StandaloneLinux64",
-        "unityci_image_module": "linux-il2cpp",
-        "playerbuild_platform": "",
-    },
-    "win64": {
-        "build_flag": "-buildTarget Win64",
-        "unityci_image_module": "windows-mono",
-        "playerbuild_platform": "",
-    },
+    "AndroidMobile": {"build_target": "Android", "unityci_image_module": "android"},
+    "MagicLeap2": {"build_target": "Android", "unityci_image_module": "android"},
+    "Linux": {"build_target": "StandaloneLinux64", "unityci_image_module": "linux-il2cpp"},
+    "Windows": {"build_target": "Win64", "unityci_image_module": "windows-mono"},
 }
 
 UNITYCI_IMAGE_REVISION = "3"
@@ -157,7 +140,7 @@ def editor_version(project_path: Path) -> str | None:
     return None
 
 
-def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str, str, str]:
+def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str, str]:
     projects = load_catalog()
     if project not in projects:
         raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
@@ -180,12 +163,7 @@ def resolve_unity_build(project: str, build: str) -> tuple[CatalogEntry, str, st
     if build not in PLATFORM_CONFIGS:
         raise SystemExit(f"No platform config for build '{build}'. Valid: {', '.join(PLATFORM_CONFIGS)}")
 
-    return (
-        project_config,
-        PLATFORM_CONFIGS[build]["build_flag"],
-        execute_method,
-        PLATFORM_CONFIGS[build]["playerbuild_platform"],
-    )
+    return project_config, PLATFORM_CONFIGS[build]["build_target"], execute_method
 
 
 def prepare_unity_project(project_path: Path) -> None:
@@ -217,9 +195,7 @@ def parse_environment_fields(entries: Sequence[str]) -> dict[str, str]:
 def playerbuild_environment(
     platform: str, development: bool, environment_preset: str, fields: dict[str, str]
 ) -> dict[str, str]:
-    env = {"DEVELOPMENT": "true" if development else "false"}
-    if platform:
-        env["PLATFORM"] = platform
+    env = {"PLATFORM": platform, "DEVELOPMENT": "true" if development else "false"}
     if environment_preset:
         env["ENVIRONMENT"] = environment_preset
     if fields:

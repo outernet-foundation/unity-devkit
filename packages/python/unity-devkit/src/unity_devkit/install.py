@@ -11,8 +11,8 @@ from bashrun.bash import bash, bash_check, bash_handoff, bash_output
 from .compile_unity import build_unity_project
 from .projects import load_catalog
 
-INSTALLABLE_TARGETS = {"android-mobile", "magicleap", "linux64"}
-ADB_TARGETS = {"android-mobile", "magicleap"}
+INSTALLABLE_TARGETS = {"AndroidMobile", "MagicLeap2", "Linux"}
+ADB_TARGETS = {"AndroidMobile", "MagicLeap2"}
 CACHE_ROOT = Path.home() / ".unity-devkit" / "builds"
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
@@ -23,7 +23,7 @@ def main(
     project: Annotated[str, typer.Option("--project", "-p", help="Unity project name")],
     target: Annotated[
         str | None,
-        typer.Option("--target", "-t", help="Device target (android-mobile, magicleap, linux64)"),
+        typer.Option("--target", "-t", help="Device target (AndroidMobile, MagicLeap2, Linux)"),
     ] = None,
     branch: Annotated[
         str | None,
@@ -127,7 +127,7 @@ def main(
         apks = sorted(cache_path.rglob("*.apk"))
 
         executables = []
-        if target_name == "linux64":
+        if target_name == "Linux":
             executable = next(
                 (
                     item
@@ -137,7 +137,7 @@ def main(
                 None,
             )
             if executable is None:
-                print("No linux64 executable found in artifact (expected a file with a matching _Data/ directory)")
+                print("No Linux executable found in artifact (expected a file with a matching _Data/ directory)")
                 raise SystemExit(1)
             executables = [executable]
 
