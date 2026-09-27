@@ -4,3 +4,19 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 bookmark.md
+
+# PlayerBuild Unity harness
+PlayerBuild/*.csproj
+PlayerBuild/*.sln
+PlayerBuild/Assets/Packages/
+PlayerBuild/Assets/_LocalWorkspace
+PlayerBuild/Assets/_LocalWorkspace.meta
+PlayerBuild/Build/
+PlayerBuild/Build.meta
+PlayerBuild/Builds/
+PlayerBuild/Library/
+PlayerBuild/Logs/
+PlayerBuild/Temp/
+PlayerBuild/UserSettings/
+PlayerBuild/obj/
+PlayerBuild/.utmp/

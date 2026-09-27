@@ -1,0 +1,22 @@
+{
+  "name": "Outernet.PlayerBuild.Editor",
+  "rootNamespace": "Outernet",
+  "references": [
+    "Newtonsoft.Json",
+    "UnityEditor.BuildProfileModule",
+    "Unity.XR.Management",
+    "Unity.XR.Management.Editor",
+    "Unity.XR.OpenXR"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

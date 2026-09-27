@@ -7,6 +7,14 @@
       "registries": {
         "pypi": "unity-devkit"
       }
+    },
+    {
+      "name": "playerbuild",
+      "path": "PlayerBuild/Assets/Package",
+      "major_minor": "0.1",
+      "registries": {
+        "npm": "org.outernet.playerbuild"
+      }
     }
   ],
   "ci_workflow": "ci.yml"
