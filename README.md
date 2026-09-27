@@ -18,7 +18,7 @@ Run from a repo root with a `unity-devkit.json` catalog declaring its Unity proj
 |---|---|
 | `compile-unity --project <name> --build <target>` | Local Unity build (APK or platform binary) suitable for `adb install`; `--stamp-version` stamps the version into `ProjectSettings.asset`; `--development`, `--environment-preset <name>`, and repeatable `--environment-field path=value` carry environment intent to the playerbuild entry. |
 | `check-unity --project <name>` | Compile gate — batchmode open+quit that fails on compile errors; for repos that own editor code but build no players. |
-| `install --project <name>` | Download the latest CI artifact and `adb install` (or launch, for `linux64`); with `--build`, compile locally first. |
+| `install --project <name>` | Download the latest CI artifact and `adb install` (or launch, for `Linux`); with `--build`, compile locally first. |
 | `lock-unity` | Lock Unity package versions. |
 | `test-unity --project <name>` | Run editmode / playmode tests. |
 | `activate-unity-license` | Activate the Unity Editor license (locally or with `--oras-push`). |
