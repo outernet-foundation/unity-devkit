@@ -81,6 +81,30 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 8 open — pane NRE instrumented, root cause pending)
+
+Owner smoke of the CT window found a live bug: after clicking Apply (which writes the table
+defines → script recompile → domain reload), the environment pane renders
+`NullReferenceException: Object reference not set to an instance of an object` persistently
+where the pane belongs. The pane's catch had rendered type+message inline with no console log
+(an anti-spam choice) — diagnosability defect fixed in `ecce7ca`: the catch now also
+`Debug.LogException`s the full stack whenever the error text differs from the previous frame's
+(recurrence of an identical text stays silent — no re-log-on-heal machinery; accepted). Gates:
+CSharpier, `check-unity` green; CT picks it up automatically through the in-place `file:` pin
+on its next package recompile.
+
+Diagnosis state: on-disk evidence is all healthy (preset copy valid with matching script GUID,
+mode `Airgapped`, platform record written by the owner's two Apply clicks — both
+`development: true`, identical facts, hence a single ProjectSettings write at 14:58:03 and a
+second platform.json write at 14:59). Static walk of every pane line against that state finds
+no null path — the throw depends on transient post-reload editor state. Leading suspects:
+`MonoScript.GetClass()` returning null during/after the define-triggered recompile (the ctor's
+`!` operators turn that into a bare NRE — the session-4 "loud inscrutable BCL" ruling taken
+literally), or the no-live-asset popup path (`Popup(-1)`). **Next step: owner repro with the
+new instrumentation and read the logged stack** — fix follows the trace. The window's Apply
+UX is otherwise proven: preset pick through the popup, copy, mode travel, and both Apply
+clicks all worked in the owner's editor.
+
 ## Status (2026-09-27, session 7 close — CT Unity flip pulled ahead of Phase 5)
 
 Owner reorder: Phase 6's Unity half executed first, so the configure window is visible in a real
