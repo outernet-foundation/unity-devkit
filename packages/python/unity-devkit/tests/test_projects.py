@@ -20,9 +20,7 @@ def write_build_config(project_dir: Path, config: dict[str, object]) -> Path:
     return config_path
 
 
-def test_discovers_project_with_platforms_keys_as_builds(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_discovers_project_with_platforms_keys_as_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = create_unity_project(tmp_path, "Alpha")
     write_build_config(project, {"name": "Alpha", "platforms": {"Linux": {}, "AndroidMobile": {}}})
     monkeypatch.chdir(tmp_path)
@@ -34,9 +32,7 @@ def test_discovers_project_with_platforms_keys_as_builds(
     assert projects["Alpha"].builds == ["Linux", "AndroidMobile"]
 
 
-def test_name_is_decoupled_from_directory_name(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_name_is_decoupled_from_directory_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = create_unity_project(tmp_path, "apps/capture-tool")
     write_build_config(project, {"name": "capture"})
     monkeypatch.chdir(tmp_path)
@@ -65,9 +61,7 @@ def test_no_build_config_found_fails(tmp_path: Path, monkeypatch: pytest.MonkeyP
         discover_projects()
 
 
-def test_config_outside_unity_project_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_config_outside_unity_project_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     not_a_project = tmp_path / "not-a-project"
     not_a_project.mkdir()
     write_build_config(not_a_project, {"name": "broken"})
