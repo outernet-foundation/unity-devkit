@@ -59,7 +59,7 @@ namespace Outernet
                     Defines = "OUTERNET_MAGIC_LEAP;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS",
                     OpenXrFeatures = new[]
                     {
-                        "UnityEngine.XR.OpenXR.Features.Interactions.HandTracking",
+                        "UnityEngine.XR.Hands.OpenXR.HandTracking",
                         "UnityEngine.XR.OpenXR.Features.Interactions.HandInteractionProfile",
                         "MagicLeap.OpenXR.Features.MagicLeapFeature",
                         "MagicLeap.OpenXR.Features.MagicLeapRenderingExtensionsFeature",
