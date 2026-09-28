@@ -31,14 +31,9 @@ Every command accepts `--help`.
 
 ## Consuming from another repo
 
-Install from PyPI:
+CI uses the hosted `build-unity.yml` / `compile-check-unity.yml` workflows (pinned to a pushed SHA with `secrets: inherit`). Those workflows invoke unity-devkit via `uvx --from unity-devkit==${UNITY_DEVKIT_VERSION}` — unity-devkit is a tool, not a consumer project dependency, so no `dependencies` entry is needed.
 
-```toml
-[project]
-dependencies = ["unity-devkit>=0.1.0"]
-```
-
-Then `uv run build-unity`, `uv run install`, etc. work from that repo against its own Unity projects — each project carries a `unity-devkit.json` with a `name` and (where buildable) a `platforms` map. To test an unreleased change, pin the repo at a git ref in a scratch branch instead (`unity-devkit = { git = "…", rev = "<sha>" }` under `[tool.uv.sources]`) and drop the pin when the release lands.
+For local dev, invoke the same entry points via `uvx --from unity-devkit build-unity`, `uvx --from unity-devkit install`, etc. Each Unity project carries a `unity-devkit.json` with a `name` and (where buildable) a `platforms` map. To test an unreleased change, pin a git ref: `uvx --from git+https://github.com/outernet-foundation/unity-devkit.git@<sha> build-unity`.
 
 ## Development
 
