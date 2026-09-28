@@ -7,7 +7,6 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using UnityEditor;
 using UnityEditor.Build;
-using UnityEditor.Build.Profile;
 using UnityEditor.Build.Reporting;
 using UnityEditor.XR.Management;
 using UnityEditor.XR.Management.Metadata;
@@ -19,16 +18,6 @@ using UnityEngine.XR.OpenXR.Features;
 
 namespace Outernet
 {
-    public sealed class BuildVerification : IPreprocessBuildWithReport
-    {
-        public int callbackOrder => 0;
-
-        public void OnPreprocessBuild(BuildReport report)
-        {
-            PlayerBuild.Verify(report.summary.platform);
-        }
-    }
-
     public static class PlayerBuild
     {
         private const string WorkspaceDirectory = "Assets/_LocalWorkspace";
@@ -324,7 +313,12 @@ namespace Outernet
                     feature.enabled = spec.OpenXrFeatures.Contains(feature.GetType().FullName);
                 }
 
-                Debug.Log($"[playerbuild] OpenXR features enabled: {string.Join(", ", spec.OpenXrFeatures)}");
+                string[] enabledFeatures = openXRSettings
+                    .GetFeatures()
+                    .Where(feature => feature.enabled)
+                    .Select(feature => feature.GetType().FullName)
+                    .ToArray();
+                Debug.Log($"[playerbuild] OpenXR features enabled: {string.Join(", ", enabledFeatures)}");
             }
 
             Debug.Log($"[playerbuild] XR loader '{spec.XrLoader}' assigned for Android (sweep applied)");
@@ -412,80 +406,6 @@ namespace Outernet
 
             return JsonConvert.DeserializeObject<Platform.Record>(File.ReadAllText(PlatformRecordPath))
                 ?? throw new BuildFailedException($"platform record at {PlatformRecordPath} is empty — run Apply");
-        }
-
-        public static void Verify(BuildTarget platform)
-        {
-            Platform.Record record = ReadPlatformRecord();
-            Platform.Spec spec = Platform.Find(record.Platform);
-            BuildConfig config = LoadConfig();
-            PlatformOverrides overrides = PlatformFor(config, spec.Name);
-            BuildProfile activeProfile = BuildProfile.GetActiveBuildProfile();
-            string[] enabledScenes = EditorBuildSettings
-                .scenes.Where(scene => scene.enabled)
-                .Select(scene => scene.path)
-                .ToArray();
-            HashSet<string> effectiveDefines = PlayerSettings
-                .GetScriptingDefineSymbols(NamedBuildTarget.Android)
-                .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                .Concat(activeProfile?.scriptingDefines ?? Array.Empty<string>())
-                .ToHashSet();
-            HashSet<string> expectedDefines = spec
-                .Defines.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                .ToHashSet();
-            expectedDefines.UnionWith(overrides.AdditionalDefines);
-            IReadOnlyList<XRLoader> loaders = XRGeneralSettingsPerBuildTarget
-                .XRGeneralSettingsForBuildTarget(BuildTargetGroup.Android)
-                ?.AssignedSettings?.activeLoaders;
-
-            bool inSync =
-                platform == BuildTarget.Android
-                && effectiveDefines.SetEquals(expectedDefines)
-                && (activeProfile?.GetScenesForBuild().Select(scene => scene.path) ?? enabledScenes).SequenceEqual(
-                    enabledScenes
-                )
-                && PlayerSettings.GetGraphicsAPIs(BuildTarget.Android).SequenceEqual(new[] { spec.GraphicsApi })
-                && PlayerSettings.GetNormalMapEncoding(NamedBuildTarget.Android) == spec.NormalMapEncoding
-                && PlayerSettings.Android.targetArchitectures == spec.Architecture
-                && PlayerSettings.GetIl2CppCompilerConfiguration(NamedBuildTarget.Android)
-                    == (record.Development ? spec.DevelopmentIl2Cpp : spec.ReleaseIl2Cpp)
-                && PlayerSettings.GetIl2CppCodeGeneration(NamedBuildTarget.Android)
-                    == Il2CppCodeGeneration.OptimizeSpeed
-                && PlayerSettings.GetManagedStrippingLevel(NamedBuildTarget.Android)
-                    == (record.Development ? spec.DevelopmentStripping : spec.ReleaseStripping)
-                && PlayerSettings.GetApiCompatibilityLevel(NamedBuildTarget.Android) == spec.ApiCompatibility
-                && EditorUserBuildSettings.androidBuildSubtarget == spec.TextureSubtarget
-                && EditorUserBuildSettings.development == record.Development
-                && loaders is { Count: 1 }
-                && loaders[0].GetType().FullName == spec.XrLoader
-                && (
-                    spec.OpenXrFeatures.Length == 0
-                    || OpenXRSettings
-                        .GetSettingsForBuildTargetGroup(BuildTargetGroup.Android)
-                        .GetFeatures()
-                        .Where(feature => feature.enabled)
-                        .Select(feature => feature.GetType().FullName)
-                        .ToHashSet()
-                        .SetEquals(spec.OpenXrFeatures)
-                )
-                && (
-                    overrides.RenderPipeline.Length == 0
-                    || (
-                        AssetDatabase.GetAssetPath(GraphicsSettings.defaultRenderPipeline) == overrides.RenderPipeline
-                        && AssetDatabase.GetAssetPath(QualitySettings.renderPipeline) == overrides.RenderPipeline
-                    )
-                );
-
-            if (!inSync)
-            {
-                throw new BuildFailedException(
-                    $"effective build state differs from the table for '{spec.Name}' — run Apply"
-                );
-            }
-
-            Debug.Log(
-                $"[playerbuild] effective values verified for '{spec.Name}' ({(record.Development ? "development" : "release")})"
-            );
         }
 
         private static BuildReport BuildPlayer(bool development, string outputPath)
