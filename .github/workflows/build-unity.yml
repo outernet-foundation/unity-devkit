@@ -34,13 +34,14 @@ on:
 env:
   CACHE_REGISTRY: ghcr.io/${{ github.repository }}/cache
   BUILDS_REGISTRY: ghcr.io/${{ github.repository }}/builds
+  UNITY_DEVKIT_VERSION: "0.1.19"
 
 jobs:
   prepare:
     uses: ./.github/workflows/prepare-unity.yml
     with:
       runner-labels: ${{ inputs.runner-labels }}
-      matrix-command: uv run --no-sync build-unity-matrix
+      matrix-command: uvx --from unity-devkit==${UNITY_DEVKIT_VERSION} build-unity-matrix
     secrets: inherit
 
   ci-build-unity:
@@ -72,7 +73,7 @@ jobs:
         run: uv sync
 
       - name: Activate Unity license
-        run: uv run --no-sync activate-unity-license --oras-push
+        run: uvx --from unity-devkit==${UNITY_DEVKIT_VERSION} activate-unity-license --oras-push
         env:
           GITHUB_TOKEN: ${{ github.token }}
           LICENSE_CACHE_TAG: ${{ needs.prepare.outputs.cache-tag }}
@@ -92,7 +93,7 @@ jobs:
           LICENSE_CACHE_TAG: ${{ needs.prepare.outputs.cache-tag }}
           ENVIRONMENT_FIELDS_INPUT: ${{ inputs.environment-fields }}
         run: |
-          uv run --no-sync ci-build-unity \
+          uvx --from unity-devkit==${UNITY_DEVKIT_VERSION} ci-build-unity \
             --project ${{ matrix.project-name }} \
             --project-path ${{ matrix.project }} \
             --platform ${{ matrix.platform }} \

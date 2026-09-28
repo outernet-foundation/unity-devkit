@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  RELEASE_DEVKIT_VERSION: "0.1.20"
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -39,7 +42,7 @@ jobs:
           enable-cache: true
 
       - name: Publish plan dry run
-        run: uvx --from release-devkit==0.1.20 publish-stable --config release-devkit.yaml --dry-run
+        run: uvx --from release-devkit==${RELEASE_DEVKIT_VERSION} publish-stable --config release-devkit.yaml --dry-run
 
   compile-check:
     permissions:

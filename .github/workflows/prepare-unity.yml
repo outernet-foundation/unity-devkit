@@ -8,7 +8,7 @@ on:
         type: string
         default: '"ubuntu-latest"'
       matrix-command:
-        description: uv run command whose stdout carries matrix=<json> and license-image=<tag> lines
+        description: Command whose stdout carries matrix=<json> and license-image=<tag> lines
         type: string
         required: true
     outputs:
@@ -31,6 +31,7 @@ on:
 
 env:
   CACHE_REGISTRY: ghcr.io/${{ github.repository }}/cache
+  UNITY_DEVKIT_VERSION: "0.1.19"
 
 jobs:
   matrix:
@@ -78,10 +79,10 @@ jobs:
 
       - name: Compute license cache tag
         id: tag
-        run: echo "value=$(uv run --no-sync unity-license-tag)" >> "$GITHUB_OUTPUT"
+        run: echo "value=$(uvx --from unity-devkit==${UNITY_DEVKIT_VERSION} unity-license-tag)" >> "$GITHUB_OUTPUT"
 
       - name: Activate Unity license
-        run: uv run --no-sync activate-unity-license --oras-push
+        run: uvx --from unity-devkit==${UNITY_DEVKIT_VERSION} activate-unity-license --oras-push
         env:
           GITHUB_TOKEN: ${{ github.token }}
           LICENSE_CACHE_TAG: ${{ steps.tag.outputs.value }}

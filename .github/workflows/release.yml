@@ -17,6 +17,8 @@ jobs:
     permissions:
       contents: write
       id-token: write
+    env:
+      RELEASE_DEVKIT_VERSION: "0.1.20"
     steps:
       - uses: actions/checkout@v5
         with:
@@ -32,4 +34,4 @@ jobs:
           # npm decides in silence whether to attempt the OIDC exchange; without verbose a trusted-publisher
           # mismatch surfaces as a bare ENEEDAUTH indistinguishable from a missing token
           NPM_CONFIG_LOGLEVEL: verbose
-        run: uvx --from release-devkit==0.1.20 publish-stable --config release-devkit.yaml
+        run: uvx --from release-devkit==${RELEASE_DEVKIT_VERSION} publish-stable --config release-devkit.yaml
