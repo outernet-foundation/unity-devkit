@@ -1,0 +1,13 @@
+requires: ">=0.1"
+ci_workflow: ci.yml
+packages:
+  unity-devkit:
+    path: packages/python/unity-devkit
+    major_minor: "0.1"
+    registries:
+      pypi: unity-devkit
+  playerbuild:
+    path: packages/unity/PlayerBuild/Assets/Package
+    major_minor: "0.1"
+    registries:
+      npm: org.outernet.playerbuild
