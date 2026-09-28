@@ -160,6 +160,11 @@ def render_dispatch_workflow(dump: EnvironmentDump, *, project: str, output: str
         f"{dump.class_name} —"
     )
 
+    workflow_call_input_blocks: list[tuple[str, str | None, list[str], str | None]] = [
+        ("runner-labels", "JSON-encoded runs-on value", ["type: string"], "default: '\"ubuntu-latest\"'"),
+        ("version", "Version string to stamp; empty builds unversioned", ["type: string"], "default: ''"),
+    ]
+
     lines = [
         header,
         "# edit the class, then regenerate this workflow.",
@@ -169,13 +174,18 @@ def render_dispatch_workflow(dump: EnvironmentDump, *, project: str, output: str
         "  workflow_dispatch:",
         "    inputs:",
         *indent_lines([line for block in input_blocks for line in build_input_block(block)], 6),
+        "  workflow_call:",
+        "    inputs:",
+        *indent_lines([line for block in workflow_call_input_blocks for line in build_input_block(block)], 6),
         "",
         "jobs:",
         "  build:",
         f"    uses: {build_workflow}",
         "    with:",
-        "      environment-preset: ${{ inputs['environment-preset'] }}",
-        "      development: ${{ inputs.development }}",
+        "      runner-labels: ${{ inputs.runner-labels || '\"ubuntu-latest\"' }}",
+        "      version: ${{ inputs.version || '' }}",
+        "      environment-preset: ${{ inputs['environment-preset'] || '' }}",
+        "      development: ${{ inputs.development || false }}",
     ]
     if transport_lines:
         lines.append("      environment-fields: |-")

@@ -13,9 +13,7 @@ from unity_devkit.dispatch_workflow_generator import (
 from unity_devkit.player_build import parse_environment_fields
 
 FIXTURE_DUMP = Path(__file__).parent / "fixtures" / "environment-dump.json"
-PINNED_BUILD_WORKFLOW = (
-    "outernet-foundation/unity-devkit/.github/workflows/build-unity.yml@cfd487e0e19b3d98046a2680a210137ec0d32832"
-)
+PINNED_BUILD_WORKFLOW = "outernet-foundation/unity-devkit/.github/workflows/build-unity-internal.yml@cfd487e0e19b3d98046a2680a210137ec0d32832"
 
 
 def load_fixture_dump() -> EnvironmentDump:
@@ -53,7 +51,7 @@ def test_render_states_the_override_law_once_on_the_preset_input() -> None:
     assert "environment field" not in workflow
     assert "empty keeps the preset value" not in workflow
     assert "checked overrides the preset value" not in workflow
-    assert workflow.count("description:") == 3
+    assert workflow.count("description:") == 5
 
 
 def test_render_maps_field_types_to_dispatch_inputs_without_descriptions() -> None:
@@ -159,11 +157,28 @@ def test_rendered_workflow_is_valid_yaml() -> None:
         "apiUrl",
         "portNumber",
     ]
+    call_inputs = trigger["workflow_call"]["inputs"]
+    assert list(call_inputs) == ["runner-labels", "version"]
+    assert call_inputs["runner-labels"]["type"] == "string"
+    assert call_inputs["runner-labels"]["default"] == '"ubuntu-latest"'
+    assert call_inputs["version"]["type"] == "string"
+    assert call_inputs["version"]["default"] == ""
     assert document["jobs"]["build"]["uses"] == PINNED_BUILD_WORKFLOW
     assert document["jobs"]["build"]["secrets"] == "inherit"
     with_block = document["jobs"]["build"]["with"]
-    assert with_block["environment-preset"] == "__EXPR_OPEN__ inputs['environment-preset'] __EXPR_CLOSE__"
-    assert with_block["development"] == "__EXPR_OPEN__ inputs.development __EXPR_CLOSE__"
+    assert with_block["runner-labels"] == "__EXPR_OPEN__ inputs.runner-labels || '\"ubuntu-latest\"' __EXPR_CLOSE__"
+    assert with_block["version"] == "__EXPR_OPEN__ inputs.version || '' __EXPR_CLOSE__"
+    assert with_block["environment-preset"] == "__EXPR_OPEN__ inputs['environment-preset'] || '' __EXPR_CLOSE__"
+    assert with_block["development"] == "__EXPR_OPEN__ inputs.development || false __EXPR_CLOSE__"
+
+
+def test_render_with_block_uses_or_defaults_for_dual_trigger_support() -> None:
+    workflow = render_fixture_workflow()
+
+    assert "runner-labels: ${{ inputs.runner-labels || '\"ubuntu-latest\"' }}" in workflow
+    assert "version: ${{ inputs.version || '' }}" in workflow
+    assert "environment-preset: ${{ inputs['environment-preset'] || '' }}" in workflow
+    assert "development: ${{ inputs.development || false }}" in workflow
 
 
 def test_render_header_embeds_the_full_regen_command() -> None:
