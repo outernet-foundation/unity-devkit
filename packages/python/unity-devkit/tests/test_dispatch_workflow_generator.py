@@ -38,22 +38,72 @@ def test_render_modes_are_deduped_into_the_preset_choice() -> None:
     assert 'options:\n          - ""\n          - "Airgapped"' in workflow
 
 
-def test_render_maps_field_types_to_dispatch_inputs() -> None:
+def test_render_defaults_the_preset_choice_to_the_first_map_key() -> None:
+    document = yaml.safe_load(render_fixture_workflow().replace("${{", "__EXPR_OPEN__").replace("}}", "__EXPR_CLOSE__"))
+
+    trigger = document.get("on", document[True])
+    preset = trigger["workflow_dispatch"]["inputs"]["environment-preset"]
+    assert preset["options"] == ["", "Airgapped"]
+    assert preset["default"] == "Airgapped"
+
+
+def test_render_states_the_override_law_once_on_the_preset_input() -> None:
     workflow = render_fixture_workflow()
 
-    assert 'username:\n        description: "environment field username (string)' in workflow
-    assert 'verboseLogging:\n        description: "environment field verboseLogging (bool)' in workflow
-    assert "type: number" in workflow
-    assert "localConfig-apiUrl" in workflow
-    assert "inputs['localConfig-apiUrl']" in workflow
+    assert "environment field" not in workflow
+    assert "empty keeps the preset value" not in workflow
+    assert "checked overrides the preset value" not in workflow
+    assert workflow.count("description:") == 3
+
+
+def test_render_maps_field_types_to_dispatch_inputs_without_descriptions() -> None:
+    workflow = render_fixture_workflow()
+
+    assert "\n      username:\n        type: string" in workflow
+    assert "\n      verboseLogging:\n        type: boolean" in workflow
+    assert "\n      pollIntervalSeconds:\n        type: number" in workflow
+
+
+def test_render_uses_leaf_names_as_input_ids_when_unique() -> None:
+    workflow = render_fixture_workflow()
+
+    assert "\n      apiUrl:" in workflow
+    assert "\n      portNumber:" in workflow
+    assert "localConfig-apiUrl" not in workflow
+    assert "${{ inputs['apiUrl'] != '' && format('localConfig.apiUrl={0}', inputs['apiUrl']) || '' }}" in workflow
+
+
+def test_render_falls_back_to_dashed_paths_on_leaf_collision() -> None:
+    dump = load_fixture_dump()
+    dump.fields.append(EnvironmentFieldDump(path="remoteConfig.apiUrl", field_type="String"))
+
+    workflow = render_dispatch_workflow(
+        dump, project="PlayerBuild", output=".github/workflows/build.yml", build_workflow=PINNED_BUILD_WORKFLOW
+    )
+
+    assert "\n      apiUrl:" not in workflow
+    assert "\n      localConfig-apiUrl:" in workflow
+    assert "\n      remoteConfig-apiUrl:" in workflow
+
+
+def test_render_falls_back_to_dashed_paths_on_control_id_collision() -> None:
+    dump = load_fixture_dump()
+    dump.fields.append(EnvironmentFieldDump(path="misc.development", field_type="Boolean"))
+
+    workflow = render_dispatch_workflow(
+        dump, project="PlayerBuild", output=".github/workflows/build.yml", build_workflow=PINNED_BUILD_WORKFLOW
+    )
+
+    assert "\n      misc-development:" in workflow
+    assert workflow.split("jobs:")[0].count("\n      development:") == 1
 
 
 def test_render_flags_enum_is_text_not_choice() -> None:
     workflow = render_fixture_workflow()
 
-    assert "comma-separated names" in workflow
-    capabilities_choice = "capabilities:\n        description:"
-    assert capabilities_choice in workflow
+    assert 'description: "comma-separated: None, Capture, Stream, Analyze"' in workflow
+    assert "\n      capabilities:\n        description:" in workflow
+    assert "\n      capabilities:\n        type: string" not in workflow
     assert "type: choice" in workflow
 
 
@@ -106,8 +156,8 @@ def test_rendered_workflow_is_valid_yaml() -> None:
         "verboseLogging",
         "pollIntervalSeconds",
         "capabilities",
-        "localConfig-apiUrl",
-        "localConfig-portNumber",
+        "apiUrl",
+        "portNumber",
     ]
     assert document["jobs"]["build"]["uses"] == PINNED_BUILD_WORKFLOW
     assert document["jobs"]["build"]["secrets"] == "inherit"
