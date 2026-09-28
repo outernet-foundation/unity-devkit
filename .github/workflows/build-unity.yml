@@ -33,6 +33,7 @@ on:
 
 env:
   CACHE_REGISTRY: ghcr.io/${{ github.repository }}/cache
+  BUILDS_REGISTRY: ghcr.io/${{ github.repository }}/builds
 
 jobs:
   prepare:
@@ -99,18 +100,11 @@ jobs:
             --run-number ${{ github.run_number }} \
             --branch ${{ github.head_ref || github.ref_name }} \
             --registry "$CACHE_REGISTRY" \
+            --builds-registry "$BUILDS_REGISTRY" \
             ${{ inputs.version && format('--version {0}', inputs.version) || '' }} \
             --environment-preset "${{ inputs['environment-preset'] }}" \
             ${{ inputs.development && '--development' || '' }} \
             --environment-fields "$ENVIRONMENT_FIELDS_INPUT"
-
-      - name: Upload Build Artifacts
-        if: success()
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ matrix.project-name }}-${{ matrix.platform }}
-          path: /tmp/unity-builds/
-          if-no-files-found: ignore
 
       - name: Upload Build Report
         if: always()
@@ -119,3 +113,4 @@ jobs:
           name: ${{ matrix.project-name }}-${{ matrix.platform }}-build-report
           path: ${{ matrix.project }}/Build/**/BuildReport.json
           if-no-files-found: ignore
+          retention-days: 1

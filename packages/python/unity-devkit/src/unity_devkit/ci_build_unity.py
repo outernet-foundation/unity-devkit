@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from bashrun.bash import bash
 from pydantic_settings import BaseSettings
 
 from ci_devkit.cache import restore, save
@@ -28,7 +29,8 @@ def ci_build_unity(
     project_path: Annotated[Path, typer.Option(help="Path to Unity project")],
     platform: Annotated[str, typer.Option(help="Target platform")],
     cache_key: Annotated[str, typer.Option(help="Cache key prefix")],
-    registry: Annotated[str, typer.Option(help="OCI registry path")],
+    registry: Annotated[str, typer.Option(help="OCI registry path for the library cache")],
+    builds_registry: Annotated[str, typer.Option(help="OCI registry path for build artifacts")],
     run_number: Annotated[int, typer.Option(help="CI run number")] = 0,
     branch: Annotated[str, typer.Option(help="Git branch name")] = "dev",
     environment_preset: Annotated[
@@ -96,3 +98,26 @@ def ci_build_unity(
                 for file in build_directory.rglob("*"):
                     if file.suffix in {".apk", ".exe"}:
                         shutil.copy2(file, artifact_directory / file.name)
+
+    with ci_step("Push build artifacts"):
+        artifact_directory = Path("/tmp/unity-builds")
+        if not artifact_directory.is_dir() or not any(artifact_directory.iterdir()):
+            print("No build artifacts to push")
+        else:
+            reference_base = f"{builds_registry}/{project}-{platform}".lower()
+            tags = (branch_slug, f"run-{run_number}")
+            if platform == "Linux":
+                staging = Path("/tmp/unity-builds-push")
+                staging.mkdir(parents=True, exist_ok=True)
+                tar_path = staging / "build.tar"
+                bash(f"tar -cf {tar_path} -C {artifact_directory} .")
+                try:
+                    for build_tag in tags:
+                        bash(f"oras push {reference_base}:{build_tag} build.tar", cwd=staging)
+                finally:
+                    tar_path.unlink(missing_ok=True)
+            else:
+                joined = " ".join(sorted(p.name for p in artifact_directory.iterdir() if p.is_file()))
+                for build_tag in tags:
+                    bash(f"oras push {reference_base}:{build_tag} {joined}", cwd=artifact_directory)
+            print(f"Pushed build artifacts: {reference_base} ({', '.join(tags)})")
