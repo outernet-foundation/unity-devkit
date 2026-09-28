@@ -176,6 +176,18 @@ untouched.
 - `--run N`: `oras pull ghcr.io/{owner}/{repo}/builds/{project}-{target}:run-N` into
   `~/.unity-devkit/builds/run-N/{project}-{target}/`.
 - Cache key changes from `{run_id}` to the tag itself (`{branch-slug}` or `run-{N}`).
+- **Reference lowercasing (contract):** the full OCI reference
+  `ghcr.io/{owner}/{repo}/builds/{package}:{tag}` must be lowercased end-to-end — OCI repo
+  names are lowercase, but `gh repo view` returns mixed-case `owner/repo` and
+  `{project}-{target}` is mixed-case. `{package}` = `f"{project}-{target}".lower()`. Mirror
+  what `cache.py:23/62` does for the registry and extend it to the package name (those
+  helpers lowercase the registry only, not the name — so the caller lowercases the name).
+  The push side (`ci_build_unity.py`) and pull side (`install.py`) must lowercase
+  identically or push/pull miss each other.
+- **`--run` semantic shift:** the old flag took a GitHub Actions **run ID** (a large int
+  like 36393741757); under OCI `--run N` pulls `:run-N` where N is `github.run_number`
+  (the sequential per-repo number the push side tags with). The flag's help text and the
+  cache dir (`~/.unity-devkit/builds/run-N/`) follow run_number, not run_id.
 - Format on pull: `oras pull -o {dir}` writes raw file layers directly — the `.apk`
   lands in the cache dir ready for `adb install` (Android); for Linux it writes
   `build.tar`, then `tar -xf build.tar -C {dir}` extracts the `exe + _Data/` (no zstd).
@@ -235,10 +247,12 @@ that are cheap, defer the rest.
 - (b) **Cache never evicted** (`install.py:110`) — `~/.unity-devkit/builds/` grows
   forever. Add `--clear-cache` flag and/or age-based eviction. Cheap.
 - (c) **No `--list` / discoverability** — can't ask "what runs are available?" Add a
-  `--list` verb that shows recent tags for `(project, target)`. Under OCI this is
-  `gh api /orgs/{org}/packages/container/builds-{project}-{target}/versions`. Medium
-  effort; high value given the migration makes the available-runs surface less obvious
-  than the Actions UI was.
+  `--list` verb that shows recent tags for `(project, target)`. Under OCI use
+  `oras repo tags ghcr.io/{owner}/{repo}/builds/{package-name}` (registry-native; avoids
+  the GitHub Packages API's org-vs-user endpoint split and URL-encoded-slash package
+  names). Subcommand verified via ORAS docs: `oras repo tags <reference>` lists all tags
+  (text by default, `--format json` optional). Medium effort; high value given the
+  migration makes the available-runs surface less obvious than the Actions UI was.
 - (d) **Linux executable detection is heuristic** (`install.py:119–132`) — looks for a
   top-level file with matching `_Data/` dir. Works because of how `ci_build_unity.py:94`
   lays out the artifact. Tighten the contract or add a manifest entry naming the
@@ -377,7 +391,9 @@ media type) and revises the §3 push/pull design accordingly.
 ## 5. Execution order
 
 The §4 review gate has passed; implementation is authorized. The cleanup workflow (Q6) is
-deferred and is not in this execution order.
+deferred and is not in this execution order. Steps 6–8 (publish, pin-bump, verify) require
+git push / merge — the sandbox GitHub App token is `Contents: read` only and cannot push;
+hand those to the operator after the code edits (steps 2–4) land and pass checks.
 
 1. **Blast radius confirmed (Q7).** Pin-bump consumers: `Make-it-Sing-fork` and
    `placeframe-capture-tool`. `Make-it-Sing` (non-fork) out of scope. Capture each
