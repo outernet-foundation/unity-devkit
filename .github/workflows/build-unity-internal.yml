@@ -34,7 +34,7 @@ on:
 env:
   CACHE_REGISTRY: ghcr.io/${{ github.repository }}/cache
   BUILDS_REGISTRY: ghcr.io/${{ github.repository }}/builds
-  UNITY_DEVKIT_VERSION: "0.1.19"
+  UNITY_DEVKIT_VERSION: "0.1.20"
 
 jobs:
   prepare:

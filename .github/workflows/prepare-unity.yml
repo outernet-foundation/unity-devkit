@@ -31,7 +31,7 @@ on:
 
 env:
   CACHE_REGISTRY: ghcr.io/${{ github.repository }}/cache
-  UNITY_DEVKIT_VERSION: "0.1.19"
+  UNITY_DEVKIT_VERSION: "0.1.20"
 
 jobs:
   matrix:

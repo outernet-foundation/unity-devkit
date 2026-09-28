@@ -11,7 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RELEASE_DEVKIT_VERSION: "0.1.20"
+  PYTHON_DEVKIT_VERSION: "0.1.13"
+  RELEASE_DEVKIT_VERSION: "0.1.24"
 
 jobs:
   check:
@@ -26,7 +27,7 @@ jobs:
           enable-cache: true
 
       - name: Preflight
-        run: uvx --from python-devkit==0.1.5 preflight-python
+        run: uvx --from python-devkit==${PYTHON_DEVKIT_VERSION} preflight-python
 
   manifest:
     runs-on: ubuntu-latest
