@@ -281,6 +281,9 @@ namespace Outernet
 
         public static void ApplyXr(Platform.Spec spec)
         {
+            // RefreshFeatures registers the OpenXR settings in EditorBuildSettings (via GetOrCreateInstance)
+            // before the build reads them — without it the mid-build access throws "not yet loaded. Please
+            // build again." OpenXRPackageSettings is internal, so this call is the public registration trigger.
             FeatureHelpers.RefreshFeatures(BuildTargetGroup.Android);
             OpenXRFeatureSetManager.InitializeFeatureSets();
             List<OpenXRFeatureSetManager.FeatureSet> featureSets = OpenXRFeatureSetManager.FeatureSetsForBuildTarget(
@@ -432,26 +435,7 @@ namespace Outernet
                 targetGroup = BuildTargetGroup.Android,
                 options = development ? BuildOptions.Development : BuildOptions.None,
             };
-            try
-            {
-                BuildReport report = BuildPipeline.BuildPlayer(options);
-                bool openXrNotLoaded =
-                    report.summary.result != BuildResult.Succeeded
-                    && report.steps.Any(step => step.messages.Any(message => IsOpenXrNotLoaded(message.content)));
-                if (!openXrNotLoaded)
-                {
-                    return report;
-                }
-            }
-            catch (Exception error) when (IsOpenXrNotLoaded(error.Message)) { }
-
-            Debug.Log("[playerbuild] OpenXR settings not yet loaded — building once more");
             return BuildPipeline.BuildPlayer(options);
-        }
-
-        private static bool IsOpenXrNotLoaded(string text)
-        {
-            return text.Contains("not yet loaded") || text.Contains("Please build again");
         }
     }
 }
