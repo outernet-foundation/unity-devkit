@@ -13,7 +13,7 @@ def write_repository(tmp_path: Path, builds: list[str] | None = None) -> None:
     config: dict[str, object] = {"name": "tool"}
     if builds is not None:
         config["platforms"] = {platform: {} for platform in builds}
-    (project / "build-config.json").write_text(json.dumps(config))
+    (project / "unity-devkit.json").write_text(json.dumps(config))
 
 
 def test_matrix_emits_entries_from_catalog(

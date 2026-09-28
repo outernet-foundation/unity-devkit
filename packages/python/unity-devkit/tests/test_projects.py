@@ -15,7 +15,7 @@ def create_unity_project(root: Path, relative: str) -> Path:
 
 
 def write_build_config(project_dir: Path, config: dict[str, object]) -> Path:
-    config_path = project_dir / "build-config.json"
+    config_path = project_dir / "unity-devkit.json"
     config_path.write_text(json.dumps(config))
     return config_path
 
@@ -61,7 +61,7 @@ def test_path_only_project_has_no_builds(tmp_path: Path, monkeypatch: pytest.Mon
 def test_no_build_config_found_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(SystemExit, match=r"No build-config\.json found"):
+    with pytest.raises(SystemExit, match=r"No unity-devkit\.json found"):
         discover_projects()
 
 

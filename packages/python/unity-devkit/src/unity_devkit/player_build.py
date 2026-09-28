@@ -182,7 +182,7 @@ def build_player(
     valid_builds = project_config.builds or []
     if not valid_builds:
         raise SystemExit(
-            f"Project '{project}' declares no builds — add platform keys to its build-config.json 'platforms' map"
+            f"Project '{project}' declares no builds — add platform keys to its unity-devkit.json 'platforms' map"
         )
     if build not in valid_builds:
         raise SystemExit(f"Unknown build '{build}' for project '{project}'. Valid: {', '.join(valid_builds)}")

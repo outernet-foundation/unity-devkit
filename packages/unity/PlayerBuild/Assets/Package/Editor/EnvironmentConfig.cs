@@ -57,7 +57,7 @@ namespace Outernet
             if (script == null)
             {
                 throw new BuildFailedException(
-                    $"No environment class script at '{classPath}' — check build-config.json 'environment_config'"
+                    $"No environment class script at '{classPath}' — check unity-devkit.json 'environment_config'"
                 );
             }
 

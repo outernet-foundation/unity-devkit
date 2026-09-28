@@ -9,7 +9,7 @@ app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 
 @app.command()
 def build_unity(
-    project: Annotated[str, typer.Option(help="Unity project name (the 'name' field of its build-config.json)")],
+    project: Annotated[str, typer.Option(help="Unity project name (the 'name' field of its unity-devkit.json)")],
     build: Annotated[str, typer.Option(help="Build target from the project's builds list (e.g. AndroidMobile)")],
     version: Annotated[
         str,

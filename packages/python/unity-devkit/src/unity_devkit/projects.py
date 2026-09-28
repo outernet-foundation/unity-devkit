@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-BUILD_CONFIG_FILENAME = "build-config.json"
+BUILD_CONFIG_FILENAME = "unity-devkit.json"
 PROJECT_MARKER = Path("ProjectSettings") / "ProjectVersion.txt"
 PRUNE_DIRECTORIES = {".git", "Library", "Temp", "obj", "Build", "node_modules", "__pycache__"}
 
@@ -20,7 +20,7 @@ class BuildConfigFile(BaseModel):
     @classmethod
     def nonempty_name(cls, value: str) -> str:
         if not value.strip():
-            raise ValueError("build-config.json 'name' must be a non-empty string")
+            raise ValueError("unity-devkit.json 'name' must be a non-empty string")
         return value
 
 

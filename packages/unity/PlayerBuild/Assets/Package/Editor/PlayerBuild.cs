@@ -44,7 +44,7 @@ namespace Outernet
             if (classPath.Length == 0)
             {
                 throw new BuildFailedException(
-                    "No environment class — set build-config.json 'environment_config' or the ENVIRONMENT_CONFIG_CLASS env var"
+                    "No environment class — set unity-devkit.json 'environment_config' or the ENVIRONMENT_CONFIG_CLASS env var"
                 );
             }
 
@@ -103,11 +103,11 @@ namespace Outernet
 
         public static BuildConfig LoadConfig()
         {
-            string path = Path.Combine(Directory.GetParent(Application.dataPath)!.FullName, "build-config.json");
+            string path = Path.Combine(Directory.GetParent(Application.dataPath)!.FullName, "unity-devkit.json");
             if (!File.Exists(path))
             {
                 throw new BuildFailedException(
-                    $"No build-config.json at the project root ({path}) — the build requires one."
+                    $"No unity-devkit.json at the project root ({path}) — the build requires one."
                 );
             }
 
@@ -346,7 +346,7 @@ namespace Outernet
             }
 
             throw new BuildFailedException(
-                $"build-config.json declares no platform for '{platformName}' (declared: {string.Join(", ", config.Platforms.Keys)})"
+                $"unity-devkit.json declares no platform for '{platformName}' (declared: {string.Join(", ", config.Platforms.Keys)})"
             );
         }
 

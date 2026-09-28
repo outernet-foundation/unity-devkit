@@ -58,7 +58,7 @@ class EnvironmentDump(BaseModel):
 
 @app.command()
 def unity_dispatch(
-    project: Annotated[str, typer.Option(help="Unity project name (the 'name' field of its build-config.json)")],
+    project: Annotated[str, typer.Option(help="Unity project name (the 'name' field of its unity-devkit.json)")],
     output: Annotated[Path, typer.Option(help="Workflow file to write (or check with --check)")],
     build_workflow: Annotated[
         str,
@@ -69,7 +69,7 @@ def unity_dispatch(
     ],
     environment_config_class: Annotated[
         str | None,
-        typer.Option(help="Env class file path override (defaults to build-config.json's environment_config)"),
+        typer.Option(help="Env class file path override (defaults to unity-devkit.json's environment_config)"),
     ] = None,
     check: Annotated[
         bool, typer.Option("--check", help="Compare against the existing file instead of writing; fail on drift")

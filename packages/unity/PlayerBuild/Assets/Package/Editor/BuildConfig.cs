@@ -35,7 +35,7 @@ namespace Outernet
             )
             {
                 throw new BuildFailedException(
-                    $"build-config.json field 'environment_config' must be a .cs project path starting with Assets/ — got '{EnvironmentConfig}'"
+                    $"unity-devkit.json field 'environment_config' must be a .cs project path starting with Assets/ — got '{EnvironmentConfig}'"
                 );
             }
 
@@ -47,7 +47,7 @@ namespace Outernet
                 )
                 {
                     throw new BuildFailedException(
-                        $"build-config.json field 'platforms[{entry.Key}].render_pipeline' must be a project path starting with Assets/ — got '{entry.Value.RenderPipeline}'"
+                        $"unity-devkit.json field 'platforms[{entry.Key}].render_pipeline' must be a project path starting with Assets/ — got '{entry.Value.RenderPipeline}'"
                     );
                 }
             }

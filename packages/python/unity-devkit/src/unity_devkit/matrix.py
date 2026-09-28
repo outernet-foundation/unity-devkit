@@ -28,7 +28,7 @@ def build_matrix() -> None:
 
     if not editor_versions:
         raise SystemExit(
-            "No projects with builds declared — build-unity-matrix needs at least one build-config.json with a non-empty 'platforms' map"
+            "No projects with builds declared — build-unity-matrix needs at least one unity-devkit.json with a non-empty 'platforms' map"
         )
     license_version = max(editor_versions)
     print(f"matrix={json.dumps({'include': matrix})}")
