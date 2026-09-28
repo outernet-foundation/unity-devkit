@@ -8,7 +8,7 @@ from typing import Annotated, Any
 import typer
 from bashrun.bash import bash, bash_handoff, bash_output
 
-from .projects import load_catalog
+from .projects import discover_projects
 from .player_build import build_player
 
 INSTALLABLE_TARGETS = {"AndroidMobile", "MagicLeap2", "Linux"}
@@ -43,7 +43,7 @@ def main(
         ),
     ] = False,
 ) -> None:
-    projects = load_catalog()
+    projects = discover_projects()
 
     project_name = next((name for name in projects if name.lower() == project.lower()), None)
     if project_name is None:

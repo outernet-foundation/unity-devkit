@@ -21,10 +21,10 @@ def write_repository(tmp_path: Path, project_settings: str, *, builds: list[str]
     (project / "ProjectSettings").mkdir(parents=True)
     (project / "ProjectSettings" / "ProjectSettings.asset").write_text(project_settings)
     (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.0.66f1\n")
-    entry: dict[str, object] = {"path": "apps/Tool"}
+    config: dict[str, object] = {"name": "tool"}
     if builds is not None:
-        entry["builds"] = builds
-    (tmp_path / "unity-devkit.json").write_text(json.dumps({"tool": entry}))
+        config["platforms"] = {platform: {} for platform in builds}
+    (project / "build-config.json").write_text(json.dumps(config))
     return project
 
 

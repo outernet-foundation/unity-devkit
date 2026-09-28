@@ -63,7 +63,7 @@ def ci_build_unity(
         unity_project_path = resolve_unity_project(project).path
         if unity_project_path.resolve() != project_path.resolve():
             raise SystemExit(
-                f"--project-path {project_path} does not match catalog entry '{project}' at {unity_project_path}"
+                f"--project-path {project_path} does not match discovered project '{project}' at {unity_project_path}"
             )
 
     with ci_step(f"Build {project} [{platform}]"):

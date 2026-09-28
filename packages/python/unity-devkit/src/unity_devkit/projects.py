@@ -1,46 +1,64 @@
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
-CATALOG_FILENAME = "unity-devkit.json"
+BUILD_CONFIG_FILENAME = "build-config.json"
 PROJECT_MARKER = Path("ProjectSettings") / "ProjectVersion.txt"
 PRUNE_DIRECTORIES = {".git", "Library", "Temp", "obj", "Build", "node_modules", "__pycache__"}
 
 
-class CatalogEntry(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class BuildConfigFile(BaseModel):
+    model_config = ConfigDict(extra="ignore")
 
+    name: str
+    platforms: dict[str, Any] | None = None
+
+    @field_validator("name")
+    @classmethod
+    def nonempty_name(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("build-config.json 'name' must be a non-empty string")
+        return value
+
+
+class ProjectEntry(BaseModel):
     path: Path
     builds: list[str] | None = None
 
-    @field_validator("path")
-    @classmethod
-    def anchor_relative_path(cls, value: Path) -> Path:
-        return value if value.is_absolute() else Path.cwd() / value
 
+def discover_projects() -> dict[str, ProjectEntry]:
+    root = Path.cwd()
+    discovered: dict[str, ProjectEntry] = {}
+    first_seen: dict[str, Path] = {}
 
-CATALOG_ADAPTER = TypeAdapter(dict[str, CatalogEntry])
-
-
-def load_catalog() -> dict[str, CatalogEntry]:
-    catalog_path = Path.cwd() / CATALOG_FILENAME
-    if not catalog_path.is_file():
-        raise SystemExit(
-            f"No {CATALOG_FILENAME} catalog at {catalog_path} — declare Unity projects as catalog entries at the repo root"
-        )
-
-    catalog = CATALOG_ADAPTER.validate_json(catalog_path.read_text(encoding="utf-8"))
-    if not catalog:
-        raise SystemExit(f"{catalog_path} declares no projects — at least one catalog entry is required")
-
-    for name, entry in catalog.items():
-        if not (entry.path / PROJECT_MARKER).is_file():
+    for directory in visible_directories(root):
+        config_path = directory / BUILD_CONFIG_FILENAME
+        if not config_path.is_file():
+            continue
+        if not (directory / PROJECT_MARKER).is_file():
             raise SystemExit(
-                f"Catalog entry '{name}' points at {entry.path}, which is not a Unity project: missing {PROJECT_MARKER}"
+                f"{config_path} sits in {directory}, which is not a Unity project: missing {PROJECT_MARKER}"
             )
-    return catalog
+        parsed = BuildConfigFile.model_validate_json(config_path.read_text(encoding="utf-8"))
+        if parsed.name in discovered:
+            raise SystemExit(
+                f"Duplicate project name '{parsed.name}' — declared at {config_path} "
+                f"and previously at {first_seen[parsed.name]}"
+            )
+        first_seen[parsed.name] = config_path
+        builds = list(parsed.platforms.keys()) if parsed.platforms else None
+        discovered[parsed.name] = ProjectEntry(path=directory, builds=builds)
+
+    if not discovered:
+        raise SystemExit(
+            f"No {BUILD_CONFIG_FILENAME} found under {root} — declare Unity projects with a "
+            f"{BUILD_CONFIG_FILENAME} per project root (carrying a 'name' field; 'platforms' "
+            f"keys are the build targets)"
+        )
+    return discovered
 
 
 def visible_directories(root: Path) -> Iterator[Path]:

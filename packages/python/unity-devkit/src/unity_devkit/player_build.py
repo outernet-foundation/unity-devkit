@@ -9,7 +9,7 @@ from typing import TypedDict
 
 from bashrun.bash import CalledProcessError, bash, bash_pipe
 
-from .projects import CatalogEntry, load_catalog
+from .projects import ProjectEntry, discover_projects
 
 
 class PlatformConfig(TypedDict):
@@ -135,8 +135,8 @@ def editor_version(project_path: Path) -> str | None:
     return None
 
 
-def resolve_unity_project(project: str) -> CatalogEntry:
-    projects = load_catalog()
+def resolve_unity_project(project: str) -> ProjectEntry:
+    projects = discover_projects()
     if project not in projects:
         raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
     return projects[project]
@@ -182,7 +182,7 @@ def build_player(
     valid_builds = project_config.builds or []
     if not valid_builds:
         raise SystemExit(
-            f"Project '{project}' declares no builds — add a 'builds' list to its entry in unity-devkit.json"
+            f"Project '{project}' declares no builds — add platform keys to its build-config.json 'platforms' map"
         )
     if build not in valid_builds:
         raise SystemExit(f"Unknown build '{build}' for project '{project}'. Valid: {', '.join(valid_builds)}")

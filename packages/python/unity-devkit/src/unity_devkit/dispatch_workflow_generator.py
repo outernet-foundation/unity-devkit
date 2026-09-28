@@ -7,7 +7,7 @@ import typer
 from pydantic import BaseModel, ConfigDict
 
 from .compile_check_unity import COMPILE_ERROR_SIGNATURES
-from .projects import load_catalog
+from .projects import discover_projects
 from .player_build import prepare_unity_project, run_unity_batchmode
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
@@ -58,7 +58,7 @@ class EnvironmentDump(BaseModel):
 
 @app.command()
 def unity_dispatch(
-    project: Annotated[str, typer.Option(help="Unity project name (catalog key in unity-devkit.json)")],
+    project: Annotated[str, typer.Option(help="Unity project name (the 'name' field of its build-config.json)")],
     output: Annotated[Path, typer.Option(help="Workflow file to write (or check with --check)")],
     build_workflow: Annotated[
         str,
@@ -75,7 +75,7 @@ def unity_dispatch(
         bool, typer.Option("--check", help="Compare against the existing file instead of writing; fail on drift")
     ] = False,
 ) -> None:
-    projects = load_catalog()
+    projects = discover_projects()
     if project not in projects:
         raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
 

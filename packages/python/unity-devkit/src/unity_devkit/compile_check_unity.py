@@ -11,7 +11,7 @@ COMPILE_ERROR_SIGNATURES = ("error CS",)
 
 @app.command()
 def compile_check_unity(
-    project: Annotated[str, typer.Option(help="Unity project name (catalog key in unity-devkit.json)")],
+    project: Annotated[str, typer.Option(help="Unity project name (the 'name' field of its build-config.json)")],
     execute_method: Annotated[
         str | None,
         typer.Option(help="Static method to run after load (Class.Method) — one editor session per invocation"),

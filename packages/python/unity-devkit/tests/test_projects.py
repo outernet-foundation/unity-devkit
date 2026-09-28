@@ -4,13 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from unity_devkit.projects import directories_containing, load_catalog
-
-
-def write_catalog(root: Path, catalog: dict[str, object]) -> Path:
-    catalog_path = root / "unity-devkit.json"
-    catalog_path.write_text(json.dumps(catalog))
-    return catalog_path
+from unity_devkit.projects import directories_containing, discover_projects
 
 
 def create_unity_project(root: Path, relative: str) -> Path:
@@ -20,60 +14,104 @@ def create_unity_project(root: Path, relative: str) -> Path:
     return project
 
 
-def test_catalog_entry_loads_with_intent_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    create_unity_project(tmp_path, "Alpha")
-    write_catalog(tmp_path, {"Alpha": {"path": "Alpha", "builds": ["Linux"]}})
+def write_build_config(project_dir: Path, config: dict[str, object]) -> Path:
+    config_path = project_dir / "build-config.json"
+    config_path.write_text(json.dumps(config))
+    return config_path
+
+
+def test_discovers_project_with_platforms_keys_as_builds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = create_unity_project(tmp_path, "Alpha")
+    write_build_config(project, {"name": "Alpha", "platforms": {"Linux": {}, "AndroidMobile": {}}})
     monkeypatch.chdir(tmp_path)
 
-    projects = load_catalog()
+    projects = discover_projects()
 
     assert set(projects) == {"Alpha"}
-    assert projects["Alpha"].path == Path.cwd() / "Alpha"
-    assert projects["Alpha"].builds == ["Linux"]
+    assert projects["Alpha"].path == project
+    assert projects["Alpha"].builds == ["Linux", "AndroidMobile"]
 
 
-def test_catalog_name_is_decoupled_from_directory_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    create_unity_project(tmp_path, "apps/capture-tool")
-    write_catalog(tmp_path, {"capture": {"path": "apps/capture-tool"}})
+def test_name_is_decoupled_from_directory_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = create_unity_project(tmp_path, "apps/capture-tool")
+    write_build_config(project, {"name": "capture"})
     monkeypatch.chdir(tmp_path)
 
-    projects = load_catalog()
+    projects = discover_projects()
 
     assert set(projects) == {"capture"}
-    assert projects["capture"].path == Path.cwd() / "apps" / "capture-tool"
+    assert projects["capture"].path == project
 
 
-def test_missing_catalog_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_path_only_project_has_no_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = create_unity_project(tmp_path, "Harness")
+    write_build_config(project, {"name": "Harness"})
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(SystemExit, match=r"No unity-devkit\.json catalog"):
-        load_catalog()
+    projects = discover_projects()
+
+    assert set(projects) == {"Harness"}
+    assert projects["Harness"].builds is None
 
 
-def test_empty_catalog_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    write_catalog(tmp_path, {})
+def test_no_build_config_found_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(SystemExit, match="declares no projects"):
-        load_catalog()
+    with pytest.raises(SystemExit, match=r"No build-config\.json found"):
+        discover_projects()
 
 
-def test_entry_outside_unity_project_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    (tmp_path / "not-a-project").mkdir()
-    write_catalog(tmp_path, {"broken": {"path": "not-a-project"}})
+def test_config_outside_unity_project_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    not_a_project = tmp_path / "not-a-project"
+    not_a_project.mkdir()
+    write_build_config(not_a_project, {"name": "broken"})
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit, match="not a Unity project"):
-        load_catalog()
+        discover_projects()
 
 
-def test_unknown_entry_key_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    create_unity_project(tmp_path, "Alpha")
-    write_catalog(tmp_path, {"Alpha": {"path": "Alpha", "unity-build": True}})
+def test_duplicate_project_name_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    first = create_unity_project(tmp_path, "apps/one")
+    write_build_config(first, {"name": "dup"})
+    second = create_unity_project(tmp_path, "apps/two")
+    write_build_config(second, {"name": "dup"})
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit, match="Duplicate project name 'dup'"):
+        discover_projects()
+
+
+def test_ignores_csharp_owned_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = create_unity_project(tmp_path, "App")
+    write_build_config(
+        project,
+        {
+            "name": "App",
+            "environment_config": "Assets/App/UnityEnv.cs",
+            "platforms": {"AndroidMobile": {"render_pipeline": "Assets/Settings/Android.asset"}},
+        },
+    )
+    monkeypatch.chdir(tmp_path)
+
+    projects = discover_projects()
+
+    assert projects["App"].builds == ["AndroidMobile"]
+
+
+def test_missing_name_field_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = create_unity_project(tmp_path, "Alpha")
+    write_build_config(project, {"platforms": {"Linux": {}}})
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(ValidationError):
-        load_catalog()
+        discover_projects()
 
 
 def test_directories_containing_honors_prune_list(tmp_path: Path) -> None:

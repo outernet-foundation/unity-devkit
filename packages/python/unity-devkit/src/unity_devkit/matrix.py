@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
 
-from .projects import load_catalog
+from .projects import discover_projects
 from .player_build import LICENSE_IMAGE_MODULE, PLATFORM_CONFIGS, UNITYCI_IMAGE_REVISION, read_editor_version
 
 
 def build_matrix() -> None:
-    projects = load_catalog()
+    projects = discover_projects()
     matrix: list[dict[str, str]] = []
     editor_versions: set[str] = set()
 
@@ -28,7 +28,7 @@ def build_matrix() -> None:
 
     if not editor_versions:
         raise SystemExit(
-            "No projects with builds declared — build-unity-matrix needs at least one unity-devkit.json entry with a 'builds' list"
+            "No projects with builds declared — build-unity-matrix needs at least one build-config.json with a non-empty 'platforms' map"
         )
     license_version = max(editor_versions)
     print(f"matrix={json.dumps({'include': matrix})}")
@@ -36,7 +36,7 @@ def build_matrix() -> None:
 
 
 def compile_check_matrix() -> None:
-    projects = load_catalog()
+    projects = discover_projects()
     matrix: list[dict[str, str]] = []
     editor_versions: set[str] = set()
 
