@@ -162,12 +162,15 @@ Next session: (1) read run 36360018379's final state to confirm the predicted ou
 (npmjs scoped registry, CT's shape) + `build-config.json` at `MakeItSing-Unity/` root
 (minimal platform entries, CT's empty-overrides shape) + `lock-unity` regen — the first
 real Entry-driven build attempt; further reds (table facts vs MIS globals, scenes, XR
-sweep) are each their own fix. (3) The MagicLeap2 slice and the flip body proper:
-placeframe pins → `7ec5e2f9`, app-code define renames (`OUTERNET_*`), UnityEnv members +
-preset re-saves, inspector deletion, dispatch workflow, Build Profile asset + Configure
-menu deletions, the four bake call-site rewires (F15/F31). (4) release.yml `workflow_run`
-retrigger + the resolve-version bridge (`app-build-version`, uvx pins → 0.1.17). Process
-protocol unchanged: propose → owner instruction → edit.
+sweep) are each their own fix. (3) The MagicLeap2 slice and the flip body proper: the
+**placeframe-magicleap pin alone** → `7ec5e2f9` (the define-rename bridge; the other four
+pins stay at `c3313124` — the stack's Core/api-client/Logging/ARFoundation changes are
+consumed only by Elliot's unmerged `feature/adopt-packages`, whose landing gates the
+full-pin move and the F4 npm migration), app-code define renames (`OUTERNET_*`), UnityEnv
+members + preset re-saves, inspector deletion, dispatch workflow, Build Profile asset +
+Configure menu deletions, the four bake call-site rewires (F15/F31). (4) release.yml
+`workflow_run` retrigger + the resolve-version bridge (`app-build-version`, uvx pins →
+0.1.17). Process protocol unchanged: propose → owner instruction → edit.
 
 ## Status (2026-09-27, session 13 close — the dual-registry release landed; CT Phase 6 remainder executed)
 
