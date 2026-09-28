@@ -1,6 +1,6 @@
 # unity-devkit
 
-Unity build, license, and CI tooling. Projects are discovered via a per-project `build-config.json` at each Unity project root: each carries a stable `name` (the workflow contract: matrix, artifacts, `--project`) and an optional `platforms` map whose keys are the build targets. File presence is the opt-in — a project without one is never touched — and `ProjectSettings/ProjectVersion.txt` inside each project remains the editor-version truth. Paired with two reusable GitHub Actions workflows hosted here — [`build-unity.yml`](https://github.com/outernet-foundation/unity-devkit/blob/main/.github/workflows/build-unity.yml) (player builds) and [`compile-check-unity.yml`](https://github.com/outernet-foundation/unity-devkit/blob/main/.github/workflows/compile-check-unity.yml) (compile gate) — consumers call them cross-repo pinned to a pushed SHA with `secrets: inherit`.
+Unity build, license, and CI tooling. Projects are discovered via a per-project `unity-devkit.json` at each Unity project root: each carries a stable `name` (the workflow contract: matrix, artifacts, `--project`) and an optional `platforms` map whose keys are the build targets. File presence is the opt-in — a project without one is never touched — and `ProjectSettings/ProjectVersion.txt` inside each project remains the editor-version truth. Paired with two reusable GitHub Actions workflows hosted here — [`build-unity.yml`](https://github.com/outernet-foundation/unity-devkit/blob/main/.github/workflows/build-unity.yml) (player builds) and [`compile-check-unity.yml`](https://github.com/outernet-foundation/unity-devkit/blob/main/.github/workflows/compile-check-unity.yml) (compile gate) — consumers call them cross-repo pinned to a pushed SHA with `secrets: inherit`.
 
 ## Setup
 
@@ -12,7 +12,7 @@ uv sync
 
 ## Commands
 
-Run from a repo root whose Unity projects each carry a `build-config.json` (with at least a `name`; `platforms` keys where build intent is needed).
+Run from a repo root whose Unity projects each carry a `unity-devkit.json` (with at least a `name`; `platforms` keys where build intent is needed).
 
 | `uv run <name>` | What it does |
 |---|---|
@@ -38,7 +38,7 @@ Install from PyPI:
 dependencies = ["unity-devkit>=0.1.0"]
 ```
 
-Then `uv run build-unity`, `uv run install`, etc. work from that repo against its own Unity projects — each project carries a `build-config.json` with a `name` and (where buildable) a `platforms` map. To test an unreleased change, pin the repo at a git ref in a scratch branch instead (`unity-devkit = { git = "…", rev = "<sha>" }` under `[tool.uv.sources]`) and drop the pin when the release lands.
+Then `uv run build-unity`, `uv run install`, etc. work from that repo against its own Unity projects — each project carries a `unity-devkit.json` with a `name` and (where buildable) a `platforms` map. To test an unreleased change, pin the repo at a git ref in a scratch branch instead (`unity-devkit = { git = "…", rev = "<sha>" }` under `[tool.uv.sources]`) and drop the pin when the release lands.
 
 ## Development
 

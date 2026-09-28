@@ -81,6 +81,45 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 18 close — per-project manifest renamed to unity-devkit.json)
+
+Owner ruling over the session-17 close: the per-project manifest introduced as
+`build-config.json` should be `unity-devkit.json` — it is now the unity-devkit project
+manifest (carries `name`, drives discovery), and the name aligns with the family convention
+(`release-devkit.json` everywhere, `openapi-client-codegen.json`). The earlier objection
+(that the convention is repo-root singletons, not per-project) was overruled: the filename
+convention is what matters, not the location shape.
+
+Cost accepted at rename time (commit `ee76fda`, devkit-only; consumer cutovers still ride
+the post-`0.1.17` follow-up): the rename re-couples the two release ledgers that session 17
+had just decoupled — `PlayerBuild.cs:106` hardcodes the filename, so the C# package source
+changed alongside the Python `BUILD_CONFIG_FILENAME` constant. This makes the rename a
+**lockstep npm + PyPI release**: a consumer with new PyPI (discovers `unity-devkit.json`) +
+old npm (reads `build-config.json`) breaks — both pins must bump together. Plus the 2
+existing consumer files (CT, MIS-fork) rename in their cutovers; the 7 compile-only stubs
+are created with the new name directly.
+
+Executed:
+- `projects.py`: `BUILD_CONFIG_FILENAME = "unity-devkit.json"`; the `ValueError` and
+  "no file found" messages follow (the latter via the constant).
+- C# (npm package source): `PlayerBuild.cs:106` literal + `:47`/`:110`/`:349` error
+  messages; `BuildConfig.cs:38`/`:50` validation messages; `EnvironmentConfig.cs:60`.
+  csharpier 1.3.0 ran clean (string-literal edits, format-neutral).
+- Python help strings + error messages across `build_unity`/`compile_check_unity`/
+  `test_unity`/`dispatch_workflow_generator`/`player_build`/`matrix` repointed.
+- Harness stub `packages/unity/PlayerBuild/build-config.json` → `unity-devkit.json`
+  (`git mv`, 100% similarity). No `.meta` (project-root file, not in `Assets/`).
+- Tests updated for the new filename (3 helpers + 1 regex). Gates: ruff, basedpyright 0/0,
+  pytest 48.
+- AGENTS.md + README.md flipped to `unity-devkit.json` (no collisions — the old root
+  catalog of that name was deleted in session 17).
+
+Consumer cutover note (follow-up session): each consumer renames its existing
+`build-config.json` → `unity-devkit.json` (CT, MIS-fork) and creates compile-only stubs
+with the new name, in the same commit that bumps both pins (PyPI `unity-devkit` + npm
+`org.outernet.playerbuild`) — the lockstep is now mandatory, not optional, because the
+npm package's `LoadConfig` reads the new filename.
+
 ## Status (2026-09-27, session 17 close — root catalog replaced by per-project discovery)
 
 Owner ruling: two files (root `unity-devkit.json` + per-project `build-config.json`) is wrong;
