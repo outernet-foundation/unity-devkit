@@ -10,6 +10,7 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.XR.Management;
 using UnityEditor.XR.Management.Metadata;
+using UnityEditor.XR.OpenXR.Features;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.XR.Management;
@@ -280,6 +281,19 @@ namespace Outernet
 
         public static void ApplyXr(Platform.Spec spec)
         {
+            FeatureHelpers.RefreshFeatures(BuildTargetGroup.Android);
+            OpenXRFeatureSetManager.InitializeFeatureSets();
+            List<OpenXRFeatureSetManager.FeatureSet> featureSets = OpenXRFeatureSetManager.FeatureSetsForBuildTarget(
+                BuildTargetGroup.Android
+            );
+            foreach (OpenXRFeatureSetManager.FeatureSet featureSet in featureSets)
+            {
+                featureSet.isEnabled = false;
+            }
+
+            OpenXRFeatureSetManager.SetFeaturesFromEnabledFeatureSets(BuildTargetGroup.Android);
+            Debug.Log($"[playerbuild] feature sets deselected for Android ({featureSets.Count} known)");
+
             XRGeneralSettings xrSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(
                 BuildTargetGroup.Android
             );
