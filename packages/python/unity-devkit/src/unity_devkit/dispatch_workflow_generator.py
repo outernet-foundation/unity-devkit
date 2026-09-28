@@ -63,8 +63,8 @@ def unity_dispatch(
     build_workflow: Annotated[
         str,
         typer.Option(
-            help="The build job's uses: value — the consumer's pinned build-unity.yml reference "
-            "(owner/repo/.github/workflows/build-unity.yml@sha, or ./.github/workflows/build-unity.yml inside unity-devkit)"
+            help="The build job's uses: value — the consumer's pinned build-unity-internal.yml reference "
+            "(owner/repo/.github/workflows/build-unity-internal.yml@sha, or ./.github/workflows/build-unity-internal.yml inside unity-devkit)"
         ),
     ],
     environment_config_class: Annotated[
