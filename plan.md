@@ -81,6 +81,57 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 17 close — root catalog replaced by per-project discovery)
+
+Owner ruling: two files (root `unity-devkit.json` + per-project `build-config.json`) is wrong;
+either the root file or the per-project files survive, not both. The per-project file wins —
+it is the one the C# build entry already mandates (PlayerBuild.cs `LoadConfig` reads it at the
+project root; the configure window reads it interactively; a Unity project cannot reliably find
+its repo root upward, but Python walks trivially). The asymmetry decides: fold the soft side's
+facts into the hard side's file, not the reverse.
+
+Executed (commit `85a609e`, devkit-only this session; consumers cut over after `0.1.17` lands):
+
+- `projects.py`: `load_catalog()` → `discover_projects()`; `CatalogEntry` → `ProjectEntry`;
+  `CATALOG_FILENAME` → `BUILD_CONFIG_FILENAME`. Discovery = pruned walk from cwd for
+  `build-config.json`, one entry per file. `ProjectEntry.path` is the file's directory;
+  `builds` is derived from `platforms` keys (None when absent — compile-only projects).
+  New guards: no file found → loud fail; `build-config.json` in a dir lacking
+  `ProjectSettings/ProjectVersion.txt` → loud fail; duplicate `name` across files → loud fail.
+- Field partition across the two release ledgers (npm vs PyPI): the Python schema
+  (`BuildConfigFile`, `extra="ignore"`) reads only `name` + `platforms` KEYS; the C#
+  `BuildConfig` reads `environment_config` + `platforms` VALUES. Newtonsoft ignores the
+  Python-owned `name`; pydantic ignores the C#-owned fields. Cross-ledger contract shrinks
+  to "file exists, `name` string, `platforms` dict" — no npm release, no ledger coupling for
+  this change.
+- The harness un-rejection: `packages/unity/PlayerBuild/build-config.json` is now a stub
+  `{"name": "PlayerBuild"}` (no `platforms`, no `environment_config`). The "no
+  build-config.json by design" rule guarded "file presence implies player-build intent" —
+  dead under the manifest reading: the stub has no platforms/env, so player-build attempts
+  still fail loudly on the missing environment class / platform (PlayerBuild.cs:43, :68),
+  while compile-check discovers it. The self-test path (`EnvironmentFixtureSelfTest.Run`)
+  sets `ENVIRONMENT_CONFIG_CLASS` and calls `ApplyEnvironment`/`DumpEnvironment` directly —
+  never touches `LoadConfig` — so the stub is inert there too.
+- Help strings and error messages across `build_unity`/`compile_check_unity`/
+  `dispatch_workflow_generator`/`test_unity`/`ci_build_unity`/`player_build`/`matrix`
+  repointed from "catalog key in unity-devkit.json" to "name field of its build-config.json";
+  the six `load_catalog` callers renamed to `discover_projects` with zero behavioral change
+  (return shape `dict[str, ProjectEntry]` preserved — `name` as key, `.path`/`.builds` as attrs).
+- Tests: `test_projects.py` rewritten for discovery (9 tests — discovers with platforms,
+  name decoupling, path-only, no-file fail, non-project fail, duplicate name, ignores C#
+  fields, missing name, prune walk); `test_matrix.py`/`test_build_player.py` helpers write
+  `build-config.json` into the project dir instead of `unity-devkit.json` at the repo root.
+  Gates: ruff, basedpyright 0/0, pytest 48 (was 40 — the test_projects rewrite added coverage).
+- `unity-devkit.json` deleted from the devkit repo root.
+
+Consumer cutovers deferred (no pushes from the sandbox; `uv lock` can't resolve an unreleased
+version): each of the 9 consumers bumps the pin to `0.1.17`, deletes its root `unity-devkit.json`,
+adds `name` to its existing `build-config.json` (CT, MIS-fork), and creates stubs for its
+compile-only projects. Non-fork Make-it-Sing left untouched — its catalog already carried dead
+keys (`package`, `execute_methods`) rejected by current devkit, and migrating it to the
+playerbuild scheme is non-mechanical. AGENTS.md and README.md rewritten to the discovery model
+in a separate prose commit.
+
 ## Status (2026-09-28, session 16 close — dispatch panel UI redesign landed)
 
 Owner feedback after using the fork's dispatch panel: it worked, but the form was ugly and
