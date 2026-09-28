@@ -132,6 +132,18 @@ Push states at close: devkit 2 ahead of origin (`e63fe93` + this record) — ope
 leisure; fork 1 ahead (`6b42448`); CT 1 ahead on dev (`30b5334`), riding the punt stack. No
 pushes from the sandbox.
 
+Post-close addendum (same session, owner-directed pin sweep): the operator pushed devkit
+through `b61dc72`; the sweep retargeted every consumer `build-unity.yml` reference
+`69e621f` → `b61dc72900682113f659f4f47e8f821a327f6f9a` (verified pushed via API) — fork
+`30048cd` and CT `c89f6d1`, each covering ci.yml's `unity` job pin plus the regenerated
+dispatch workflow (header and `uses:`). The fork editor session re-churned the two XR
+simulation `.meta` GUIDs; reverted again — the conflict with `Assets/XR/Temp/` artifacts is
+chronic and pre-existing. Gated follow-up: both consumers' uv locks still resolve
+unity-devkit 0.1.16; `uv lock --upgrade-package unity-devkit` in each once Release publishes
+0.1.17 (CI run 36370979410 in flight at addendum time; the push of `b61dc72` is its trigger) —
+that bump is also what makes an in-repo `uv run unity-dispatch --check` reproduce the
+new-format workflows.
+
 Next session: unchanged from the session-15 close — read run 36362888962's final state (and the
 newer runs the above commits fired), the release.yml `workflow_run` retrigger + resolve-version
 bridge (item 4), owner-side Elliot smoke. Process protocol unchanged: propose → owner
