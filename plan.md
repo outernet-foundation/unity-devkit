@@ -1498,15 +1498,15 @@ delete this plan
 **Excluded**: the 6000.2 editor upgrade (own initiative; changes nothing here — see
 §Unity 6 pin).
 
-## Convergence verification method (mandatory at each flip)
+## Convergence verification (superseded 2026-09-27, session 15)
 
-Before deleting each old BuildScript, in that consumer's checkout: run the old configure
-path and the new package path in batchmode against the same project, each followed by a
-state dump to JSON — defines (all layers), graphics APIs, architectures, texture
-subtarget, encoding, XR loader assignment, OpenXR feature enable-set, render pipelines,
-applied environment fields, the effective-value verification inputs. Diff; every delta
-must be on the convergence list (table contents + F16 vocabulary); unlisted delta = bug.
-Then one `compile-unity` build; compare applied-config log lines and `BuildReport.json`.
+The profiles-era mandate — a one-shot old-vs-new state-diff before deleting each old
+BuildScript — is dead. It answered silent state divergence in an architecture where
+nothing verified at build time; rewrite 3 verifies continuously and structurally: the
+preprocessor fails every player build on any fact diverging from the table, `Verify`
+guards every bake entry point, and CI reds name their facts. Precedent: CT's flip skipped
+the diff and went green through the ordinary build loop. A qualitative old-vs-new check
+rides the Elliot smoke.
 
 ## Executor constraints (unchanged)
 
