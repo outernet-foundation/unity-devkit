@@ -150,15 +150,18 @@ same manifest twice — `{branch-slug}` (mutable, latest-on-branch) and `run-{gi
 - Package: `ghcr.io/{owner}/{repo}/builds/{project}-{target}` (one package per
   `(project, target)`, matching the current artifact-name contract at `install.py:78`).
 - Tags: `:{branch-slug}` and `:run-{github.run_number}`.
-- The `ci_devkit.cache.save` helper (`ci_build_unity.py:86` uses it for the library cache)
-  is the push vehicle. It currently takes a single tag — either call it twice (push same
-  content to both tags) or extend it to accept a list. Media type
-  `application/vnd.unity-devkit.cache.v1+zstd` is the wrapper identifier (per `AGENTS.md`:
-  "identifies the wrapper package, not the consuming repo") — reused for build outputs (Q5
-  decision); the `build` vs `cache` family distinction only matters in a narrow future (OCI
-  referrers for build-output signatures/SBOMs, or registry-inventory tooling keyed on media
-  type rather than package path), neither on the roadmap, and the package path
-  (`.../builds/` vs `.../cache/`) already partitions the families durably.
+- Build outputs push via **direct `oras push` (NOT `ci_devkit.cache.save`)**. `save()` wraps
+  content in tar.zst, dragging a zstd dependency onto the pull side (zstd is not on macOS/
+  Windows by default; macOS's bsdtar only handles zstd if libarchive was built with it).
+  Build outputs push as raw OCI file layers instead: Android's `.apk` as a single file layer
+  (`application/octet-stream`); Linux's `exe + _Data/` as a plain `.tar` (no zstd — `tar`
+  ships everywhere, incl. Windows 10+). `oras pull -o` then writes the `.apk` directly
+  (Android) or the `.tar`, extracted with `tar -xf` (Linux). The library cache
+  (`ci_build_unity.py:86`) keeps `save()` — it's CI-only and the runner has zstd; the
+  raw-file approach is specific to build outputs' local-dev pull path. Dual-tag: one
+  `oras push` per tag (CLI doesn't multi-tag here); the second push is manifest-only since
+  blobs dedupe by digest. Q5's wrapper-media-type question is superseded — raw file layers
+  use `application/octet-stream`, and `oras pull` doesn't filter on it.
 - Workflow `permissions:` already has `packages: write` (`build-unity.yml:49–51`); no
   permission change needed.
 
@@ -173,15 +176,27 @@ untouched.
 - `--run N`: `oras pull ghcr.io/{owner}/{repo}/builds/{project}-{target}:run-N` into
   `~/.unity-devkit/builds/run-N/{project}-{target}/`.
 - Cache key changes from `{run_id}` to the tag itself (`{branch-slug}` or `run-{N}`).
+- Format on pull: `oras pull -o {dir}` writes raw file layers directly — the `.apk`
+  lands in the cache dir ready for `adb install` (Android); for Linux it writes
+  `build.tar`, then `tar -xf build.tar -C {dir}` extracts the `exe + _Data/` (no zstd).
+  The downstream apk/executable detection (`install.py:117–132`) is unchanged.
 
-### Auth — new surface
+### Auth and prerequisites — new local surface
 
-`gh run download` uses `gh` auth transparently; `oras pull` does not. For private packages
-(Make-it-Sing-fork's builds), the script must auth to ghcr before pulling. Decision (Q3):
-the script runs `echo "$(gh auth token)" | oras login ghcr.io --username oauth2 --password-stdin`
-once at the top of the fetch path (idempotent). Wrap in a helper with a clear error if
-`gh auth token` fails. For public packages (placeframe-capture-tool), no auth needed for
-pull — but running the login unconditionally is harmless.
+`gh run download` uses `gh` auth transparently; `oras pull` does not. Two new local
+prerequisites, both checked at the top of the fetch path:
+
+- **oras presence (Q8):** the script checks `oras` on PATH; if missing, errors with
+  platform install pointers (brew/scoop/curl) and exits. No auto-provisioning — the dev
+  already needs `gh` installed and authenticated, so requiring oras alongside is
+  acceptable. (CI is unaffected — `install_oras()` provisions it in the runner.)
+- **ghcr login (Q3):** capture `gh auth token` via `bash_output`, then feed it to oras via
+  `bash("oras login ghcr.io --username oauth2 --password-stdin", stdin_text=token)` — the
+  `stdin_text` pattern (mirroring `ci_devkit/setup_oras.py:48–51`), NOT a shell pipe
+  (`echo | oras login`), which bashrun's `bash()`/`bash_output()` reject. Idempotent; wrap
+  with a clear error if `gh auth token` fails. For public packages
+  (placeframe-capture-tool) no auth is needed for pull, but running the login unconditionally
+  is harmless.
 
 ### Cleanup — deferred to a tracked follow-up
 
@@ -202,8 +217,10 @@ not a hasty bolt-on to this migration.
 
 ## 4. Resolved decisions
 
-The owner has answered all seven. Each is recorded below with its decision and rationale;
-an executor implements to these and does not re-derive them.
+The owner has answered all of the original seven, plus the post-gate decisions (Q8–Q9) that
+emerged during implementation review (the zstd/cross-platform surface). Each is recorded
+below with its decision and rationale; an executor implements to these and does not
+re-derive them.
 
 ### Scope questions (what to fix alongside the migration)
 
@@ -288,11 +305,14 @@ small and human-consumed from the Actions UI.)
 (per `AGENTS.md`); `oras pull` doesn't filter on it. Recommend reuse (less machinery)
 unless there's a filtering/discovery reason to distinguish.
 
-**Decision:** (i) reuse `application/vnd.unity-devkit.cache.v1+zstd`. The `build` vs
-`cache` family distinction only matters in a narrow future (OCI referrers for
-build-output signatures/SBOMs, or registry-inventory tooling keyed on media type rather
-than package path) — neither on the roadmap, and the package path (`.../builds/` vs
-`.../cache/`) already partitions the families durably.
+**Decision:** Superseded by Q9 (post-gate zstd-drop). Once build outputs push as raw file
+layers (not a tar.zst wrapper), there is no wrapper media type to decide — raw file layers
+use `application/octet-stream`, and `oras pull` doesn't filter on it. The original
+"reuse vs mint" framing applied only to the wrapper blob, no longer used for build outputs.
+(For reference: the actual cache media type in code is
+`application/vnd.ci-devkit.cache.v1+zstd` — `cache.py:83`, owned by ci-devkit post-
+extraction; the unity-devkit AGENTS.md reference to `vnd.unity-devkit.*` is stale and gets
+corrected in step 9.)
 
 **Q6. Cleanup workflow scope.** Build the scheduled ghcr cleanup workflow as part of this
 plan, or defer to a follow-up? It's net-new operational surface and applies to both
@@ -325,6 +345,35 @@ contract — legacy `unity-devkit.json` format (`builds` array + `execute_method
 current `platforms` map) and a malformed 79-char workflow pin SHA in `ci.yml:97`.
 Recorded so it's not rediscovered; not pulled into this migration.)
 
+### Post-gate decisions (emerged during implementation review)
+
+**Q8. Local oras prerequisite.** The pull-side rewrite (`install.py` → `oras pull`)
+requires `oras` installed locally for anyone running `install` — the CI side provisions it
+(`install_oras()`), but local dev machines do not. Options: (A) auto-provision oras from
+`install.py` (mirroring CI provisioning, adding macOS support to ci-devkit's
+`install_oras`); (B) check for oras on PATH, error with install pointers if missing, leave
+installation to the user.
+
+**Decision:** (B) — check + error, no auto-provisioning. The dev already needs `gh`
+installed and authenticated, so requiring oras alongside is acceptable; auto-provisioning
+would add macOS provisioning surface to ci-devkit (arch detection, brew-or-tarball, zstd
+install) for a one-time-per-machine cost that doesn't justify the machinery.
+
+**Q9. Drop the tar.zstd wrapper for build outputs.** `ci_devkit.cache.save` wraps content
+in tar.zst; the pull/extract step then needs zstd + a zstd-aware tar. zstd is not
+pre-installed on macOS or Windows, and macOS's bsdtar only handles zstd if libarchive was
+built with it — a cross-platform footgun independent of who provisions oras (it's the
+artifact format that drags the dependency). Options: (i) keep tar.zst and require zstd
+locally alongside oras; (ii) drop the wrapper for build outputs — push raw file layers
+(Android `.apk` as one layer; Linux `exe + _Data/` as a plain `.tar`), so `oras pull -o`
+writes files / a plain tar extractable with ubiquitous `tar -xf`, no zstd anywhere on the
+pull side.
+
+**Decision:** (ii) — drop the tar.zstd wrapper for build outputs. Push via direct
+`oras push` (NOT `save()`), raw files for Android, plain tar for Linux. The library cache
+keeps `save()` (CI-only, runner has zstd). This supersedes Q5 (no wrapper → no wrapper
+media type) and revises the §3 push/pull design accordingly.
+
 ## 5. Execution order
 
 The §4 review gate has passed; implementation is authorized. The cleanup workflow (Q6) is
@@ -334,14 +383,22 @@ deferred and is not in this execution order.
    `placeframe-capture-tool`. `Make-it-Sing` (non-fork) out of scope. Capture each
    consumer's current `unity-devkit` pin SHA so the post-migration bump is explicit
    (`Make-it-Sing-fork` → `@69e621f5`; `placeframe-capture-tool` → `@b61dc729`).
-2. **Edit `build-unity.yml`.** Replace the two `upload-artifact` steps (`:107–121`) with
-   ORAS push (dual-tag, per §3). Keep `BuildReport.json` as a tiny Actions artifact with
-   `retention-days: 1` (Q4). Add the push using `ci_devkit.cache.save` (or an extended
-   helper if it needs multi-tag support).
-3. **Edit `install.py`.** Rewrite the fetch path (`:78–115`) to `oras pull`. Add the auth
-   helper (Q3: auto `oras login` via `gh auth token`). Apply the scoped once-over fixes
-   from Q1: `--list`, `--dry-run`, and enforce (not document) that cwd is the consumer
-   repo. Keep `--build` path (`:71–76`) and install/launch step (`:134–150`) untouched.
+2. **Edit `build-unity.yml` + `ci_build_unity.py`.** Replace the two `upload-artifact`
+   steps (`:107–121`) with ORAS push (dual-tag, per §3). Keep `BuildReport.json` as a tiny
+   Actions artifact with `retention-days: 1` (Q4). Push build outputs via direct
+   `oras push` (NOT `save()`) — raw `.apk` file layers (Android) / plain `.tar` (Linux),
+   no zstd (Q9). Add the `--builds-registry` option to `ci-build-unity` and a
+   `BUILDS_REGISTRY` env var in the workflow. NOTE: step-2 code was started before the
+   zstd-drop decision — the `ci_build_unity.py` push step (which used `save()`) is stale
+   against this plan and is reworked on resume; the `--builds-registry` option and the
+   `build-unity.yml` edits (env var, flag, removed `upload-artifact`, `retention-days: 1`)
+   stand.
+3. **Edit `install.py`.** Rewrite the fetch path (`:78–115`) to `oras pull` (raw files /
+   plain tar, no zstd per Q9). Add the auth + prerequisites (Q3: `oras login` via
+   `stdin_text` from `gh auth token`; Q8: check oras on PATH, error if missing). Apply the
+   scoped once-over fixes from Q1: `--list`, `--dry-run`, and enforce (not document) that
+   cwd is the consumer repo. Keep `--build` path (`:71–76`) and install/launch step
+   (`:134–150`) untouched.
 4. **Edit `placeframe-capture-tool/.github/workflows/ci.yml`.** Delete the dead `Upload
    images.lock` step (`:141–146`). (The `unity` job's build-output migration is handled by
    the `build-unity.yml` pin bump in step 7; this step is the repo-local `build-zed` job
@@ -395,11 +452,14 @@ evidence.
   snapshot. Deletion stops future accrual but doesn't reduce the accrued figure; only the
   cycle reset zeroes it. This only matters if `upload-artifact` is still in use — once
   migrated, the accrued figure is irrelevant to builds.
-- **F6.** The ORAS push mechanism already exists: `ci_devkit.cache.save` (used at
-  `ci_build_unity.py:86` for the `unity-library` cache). Same helper, same media type
-  (`application/vnd.unity-devkit.cache.v1+zstd`), same registry pattern
-  (`ghcr.io/{owner}/{repo}/cache/{name}:{tag}`). Build outputs use
-  `ghcr.io/{owner}/{repo}/builds/{name}:{tag}` — parallel structure.
+- **F6.** The ORAS push mechanism already exists for the library cache: `ci_devkit.cache.save`
+  (used at `ci_build_unity.py:86` for `unity-library`), media type
+  `application/vnd.ci-devkit.cache.v1+zstd` (`cache.py:83` — owned by ci-devkit post-
+  extraction; the unity-devkit AGENTS.md reference to `vnd.unity-devkit.*` is stale). Build
+  outputs do NOT reuse `save()` (Q9 dropped the tar.zstd wrapper for cross-platform
+  reasons) — they push via direct `oras push` as raw file layers, but to a parallel
+  namespace: `ghcr.io/{owner}/{repo}/builds/{name}:{tag}` (vs the library cache's
+  `.../cache/{name}:{tag}`).
 - **F7.** `build-unity.yml` already grants `packages: write` (`:49–51`). No permission
   change needed for the push.
 - **F8.** The `install.py` `--build` path (`:71–76`) calls `build_player` locally and is
