@@ -1,21 +1,15 @@
 {
-  "packages": [
-    {
-      "name": "unity-devkit",
+  "packages": {
+    "unity-devkit": {
       "path": "packages/python/unity-devkit",
       "major_minor": "0.1",
-      "registries": {
-        "pypi": "unity-devkit"
-      }
+      "registries": { "pypi": "unity-devkit" }
     },
-    {
-      "name": "playerbuild",
+    "playerbuild": {
       "path": "packages/unity/PlayerBuild/Assets/Package",
       "major_minor": "0.1",
-      "registries": {
-        "npm": "org.outernet.playerbuild"
-      }
+      "registries": { "npm": "org.outernet.playerbuild" }
     }
-  ],
+  },
   "ci_workflow": "ci.yml"
 }
