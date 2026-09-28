@@ -81,6 +81,62 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-28, session 16 close — dispatch panel UI redesign landed)
+
+Owner feedback after using the fork's dispatch panel: it worked, but the form was ugly and
+unreadable — every row showed the field path twice (dashed as the input id/label, dotted again
+inside the description) plus a type annotation plus the same law sentence repeated 19 times, and
+the form carried no defaults. Rulings (owner, "agree on all" — do not relitigate): **per-field
+descriptions are dead** (the override law is stated once, on the preset input; flags enums keep a
+`comma-separated: …` hint — the only input type whose format isn't visible in the form);
+**input ids are leaf names** when unique among emitted fields and not colliding with the control
+ids, dashed full path otherwise (mechanical fallback, no curation — the offered `--fields`
+curation fork was not taken; the panel stays one-input-per-simple-field); **the preset choice
+defaults to the first map key** (map declaration order; Airgapped for both consumers — the owner
+did not name a preset and first-key is the mechanical derivation), blank option retained for
+ambient no-op; **field defaults stay empty by construction** — static YAML defaults cannot
+follow the chosen preset, and defaulting fields to one preset's values would silently stomp the
+other preset when picked (non-empty inputs forward as overrides). "Development build column"
+became "Development build (debug symbols)".
+
+Landed: devkit `e63fe93` (generator + tests; ruff/format/basedpyright 0/0, pytest 46 — suite
+gained the default/law-once/leaf-id/collision-fallback tests). Regens: fork `6b42448` (dump run
+live against `org.outernet.playerbuild@0.1.3` resolved from npmjs — the fork now resolves the
+package from the registry; the placeframe stack's four git-pins remain at `c3313124`, magicleap
+at `7ec5e2f9`), CT `30b5334` on dev (3-field CaptureEnv: ids were already leaf-level). No CI
+drift gate exists at any consumer yet (the session-13 design gap stands), so the regens are
+consistent by construction; note that `--check` under the **released** devkit (≤0.1.16) against
+these regenerated workflows reports drift until the release carrying `e63fe93` lands — expected,
+one-time.
+
+Error on record, resolved: CT's dump door segfaulted twice (exit 139, deterministic —
+`OpenXRChooseRuntimeLibraries.cs:132`, `PluginImporter.GetAllImporters()` at
+InitializeOnLoad, native, before the execute method; no dump line emitted). CI was green on the
+identical tree 18 minutes earlier (fresh checkout, fresh `Library`), isolating the crash to the
+sandbox's stale CT `Library/` state (it had lived through the file:→npm pin migration and the
+openupm registry addition). Wiped `apps/CaptureTool/Library`; the dump succeeded on the
+full-reimport session. No tree change was involved. Incidental editor dirt reverted: the fork
+session reassigned GUIDs on two XR simulation `.meta` files (pre-existing GUID conflict with
+`Assets/XR/Temp/` artifacts) — checked out, not part of the change. CT's known dirt
+(`PackageManagerSettings.asset`: `com.fofx` scope + openupm registry; `ProjectSettings.asset`
+architecture line; `extraction-plan.md`) left as found.
+
+Observed, not this session's work and unrecorded in this plan: devkit main carries `33f8e4f`/
+`9ec1443`/`30ca310` (Verify file move + fact diffs, ApplyXr OpenXR ownership, MagicLeap2
+HandTracking feature-id fix), fork main `61741a4`/`53d04c6` (playerbuild 0.1.2/0.1.3 bumps,
+Verify door moves), CT dev `a9d2efd`/`277dac9`/`b38729e` (OpenXR settings registration in
+EditorBuildSettings, playerbuild bumps) with a green "Next release" PR run — those sessions owe
+this plan their entries; flagged, not fabricated here.
+
+Push states at close: devkit 2 ahead of origin (`e63fe93` + this record) — operator push at
+leisure; fork 1 ahead (`6b42448`); CT 1 ahead on dev (`30b5334`), riding the punt stack. No
+pushes from the sandbox.
+
+Next session: unchanged from the session-15 close — read run 36362888962's final state (and the
+newer runs the above commits fired), the release.yml `workflow_run` retrigger + resolve-version
+bridge (item 4), owner-side Elliot smoke. Process protocol unchanged: propose → owner
+instruction → edit.
+
 ## Status (2026-09-27, session 15 close — Phase 7 flip body complete and pushed; the five-pin over-reach caught and corrected)
 
 Session opened confirming run 36360018379's forecast exactly: livekit green; both unity
@@ -1198,9 +1254,20 @@ without dump regen is a loud CI failure — the accepted regen tax.
 
 **Dispatch panel rules** (generated static YAML; F20/F32 caps):
 
-- one `choice` input for preset, options = map keys; unset = ambient no-op;
+- one `choice` input for preset, options = map keys (blank first, ambient no-op), **defaulting to
+  the first map key** — an untouched form applies a known env instead of ambient no-op;
 - one input per simple-typed field: bool → boolean checkbox, enum → choice dropdown,
   string/number → text; arrays/structs self-exclude (no input type exists);
+- input ids are the field's **leaf name** when unique among the emitted fields and not colliding
+  with the control ids (`environment-preset`, `development`), else the dashed full path;
+  transport expressions reference ids with bracket notation and carry the dotted path in the
+  `format()` template;
+- field descriptions are omitted — the label carries the field identity, and the override law
+  (empty/unchecked = keep the preset's value) is stated once, on the preset input's description;
+  flags enums keep a `comma-separated: …` hint listing the names;
+- field defaults stay empty by construction: YAML defaults are static and cannot follow the
+  chosen preset — defaulting fields to one preset's values would silently stomp the other
+  preset when picked (non-empty inputs forward as overrides);
 - flags enums → text input taking comma-separated names (`Enum.Parse`'s native format;
   numeric values also parse);
 - mechanical dedup: the field typed as the map's key enum is not emitted as a field
