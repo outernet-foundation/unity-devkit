@@ -81,6 +81,89 @@ Codified from the owner's directives while reviewing `BuildConfigFile.cs`/`Platf
 Process protocol for every session: propose → wait for the owner's explicit instruction →
 only then edit; review gates halt implementation mid-stream; always yield.
 
+## Status (2026-09-27, session 15 close — Phase 7 flip body complete and pushed; the five-pin over-reach caught and corrected)
+
+Session opened confirming run 36360018379's forecast exactly: livekit green; both unity
+builds red at the predicted missing entry (`executeMethod class 'PlayerBuild' could not be
+found` — the manifest had no playerbuild pin). Item (1) closed. The AndroidMobile slice
+landed (`b080ceb`: npm pin 0.1.1 + build-config.json + lock), then the MagicLeap2 slice and
+flip body — interrupted by a caught error and an owner-directed forensics detour, both on
+record.
+
+**The over-reach and correction**: the session-14 pointer's "placeframe pins → 7ec5e2f9"
+was executed as all five pins moving — pulling the whole placeframe stack into MIS (Core
+23 files +1008/−1396, api-client +435/−318, Logging LokiSink, ARFoundation CameraProvider),
+whose app code still consumed the old API (reds: `VisualPositioningSystem.Login`/`Discover`/
+`CreateBackendAuthHandler`/`LoadedMapCount`/`SetMapVisualizationsVisible`, an `ICameraProvider`
+signature, the `LocalizationMapManager` rename). Forensics established: the fork base is
+correct (`c07a0c1` = prime origin/main `a85d5f9` + the 5-commit devkit stack; fork dev =
+prime dev = `7a7604d`; fork main strictly ahead, fast-forward); the consumer-side
+adaptation EXISTS as Elliot's unmerged `feature/adopt-packages` (`3366e3b` + wip `18be572`,
+2 commits ahead of `a85d5f9` — deletes ~1300 lines of Managers, adopts
+`LocalizationMapVisualizerManager` and lbetoolkit; its placeframe/lbetoolkit pins are local
+Windows `file:` paths, unpublishable — it cannot be a CI base); and the magicleap package's
+full delta `c3313124`→`7ec5e2f9` is exactly the three define gates + one comment +
+package.json version spelling — no API usage changes, compiles identically against
+Core@c3313124. Correction executed: four pins back at `c3313124`, magicleap alone at
+`7ec5e2f9`, the `Prefabs.cs` rewire reverted, pointer narrowed (`a899e60`). En-route fact:
+at `7ec5e2f9` the api-client package's declared name is `org.outernet.placeframe.apiclient`
+(`org.nuget.*` at `c3313124`). **The full-pin move + F4 npm migration are gated on
+adopt-packages landing — do not relitigate.** Adopt-packages rebase outlook (for the
+eventual merge): textual conflicts only in manifest.json (union) and a UnityEnv.cs near-miss
+(we add statics, he deletes instance fields); his branch never renamed the define gates —
+it NEEDS our renames to compile against new placeframe; his workloads→docker restructure
+moots the fork's `f6a4e8c` ledger entry; the fork→prime consolidation PR must land BEFORE
+his rebase.
+
+The flip body, landed on fork main (gated green at every step; the end tree's proof is the
+dispatch regen session — the dump door executes only post-compilation, zero `error CS`;
+beware stale /tmp/unity-devkit-*/editor.log globs — always take the newest):
+- `cbf8ee8`: app-code define renames (`PLERION_MAGIC_LEAP`→`OUTERNET_MAGIC_LEAP` ×6,
+  `PLERION_ANDROID_MOBILE`→`OUTERNET_ANDROID_MOBILE` ×2, and the LIVE `#elif MAGIC_LEAP`
+  camera dispatch at AppSetup.cs:341 — it selects the ML camera provider on device;
+  falling through to UNITY_ANDROID would silently pick ARFoundation) + ProjectSettings
+  define rows (Android renamed to the table set; 14 dead `USE_ML_OPENXR;MAGICLEAP` rows
+  dropped; Standalone pruned to `FISHNET;FISHNET_V4`).
+- `d638037`: UnityEnv grows `Presets` (Airgapped/Supabase → committed preset paths) +
+  `TargetPath`; both canonical presets re-saved by hand YAML edit (`room:`→`roomId:`, value
+  carried — it is the renamed field and matches localRooms[0].id; the owner smoke verifies
+  by picking both presets).
+- `f349e56`: the four bake call sites (CreateAssetBundles.cs ×2, AssetBundleManagerWindow.cs
+  ×2) rewired to `PlayerBuild.Apply` + `Verify` (per-file `ConfigureFor(string)` helper,
+  two callsites each); BuildScript.cs + the Magic Leap 2.asset profile deleted;
+  AppEditor.asmdef gains the package assembly by GUID (`autoReferenced` does not reach
+  asmdef'd assemblies — CT never hit this, being asmdef-less); build-config.json grows both
+  render_pipeline entries.
+- `377a933` + `c1d1b3a`: dispatch workflow generated from the live UnityEnv (`--check`
+  byte-stable; 20 of 25 inputs after the thing deletion — resolving the session-9
+  arithmetic: the generator's 2 controls were right, 21 pre-deletion).
+
+Owner rulings this session — do not relitigate: **UnityEnvInspector is NOT deleted**
+(compiles clean against the grown class, nothing depends on its absence, Elliot's branch
+doesn't touch it; Elliot deletes it himself at adopt-packages time — Phase 7 clause
+amended below); **`UnityEnv.thing` + `Thing` deleted outright** (unreferenced; their panel
+inputs were unwritable — `Thing` is not `[Serializable]`, FindProperty would null and fail
+loudly); **the convergence-diff mandate is superseded** (§Convergence verification —
+rewrite 3's preprocessor + bake-entry Verify + named CI reds check convergence continuously;
+CT's flip already skipped it; a qualitative old-vs-new check rides the Elliot smoke).
+
+Push states at close: the owner pushed the fork (main was 6 ahead, `b080ceb`..`c1d1b3a`) —
+run **36362888962 in flight**, front matter green (check/mirror/matrix/livekit/license),
+both unity builds pending at close with outcomes unknown; the first real Entry-driven
+builds, no Library cache, expect 20–60 min each — the AndroidMobile job is the likelier
+first green. Both direct-to-main pushes also fired Release failures (`36362694562`,
+`36362888318`): confirmed the known empty-SHA fetch race ("No successful CI run found for
+SHA .") — item 4, not a new defect. devkit main is 3 ahead of origin (`1e24357` session-14
+close, `a899e60` pointer narrowing, `18db09d` convergence supersession) plus this close —
+prose-only, operator push at leisure.
+
+Next session: (1) read 36362888962's final state — each red (table facts vs MIS globals,
+scenes, XR sweep, ML2 specifics) is its own fix per the standing method. (2) Item 4:
+release.yml `workflow_run` retrigger + the resolve-version bridge (`app-build-version` job,
+uvx pins → 0.1.17). (3) Owner-side: the Elliot smoke (Apply → native Build both platforms,
+bakes through the rewired entries, workspace round-trip, pick both presets). Process
+protocol unchanged: propose → owner instruction → edit.
+
 ## Status (2026-09-27, session 14 close — the fork stands: Phase 7's E2E vehicle brought from parse-dead to one step from green)
 
 Branch topology assembled (owner rulings on record: MIS's 5-commit dev stack moved to
@@ -171,6 +254,8 @@ members + preset re-saves, inspector deletion, dispatch workflow, Build Profile 
 Configure menu deletions, the four bake call-site rewires (F15/F31). (4) release.yml
 `workflow_run` retrigger + the resolve-version bridge (`app-build-version`, uvx pins →
 0.1.17). Process protocol unchanged: propose → owner instruction → edit.
+
+Next-session pointer superseded by the session-15 close above; retained for the record.
 
 ## Status (2026-09-27, session 13 close — the dual-registry release landed; CT Phase 6 remainder executed)
 
@@ -1481,7 +1566,9 @@ portable both ways and stays.
 `airgapped`, not `air-gapped`) and `public const string TargetPath =
 "Assets/_LocalWorkspace/Resources/UnityEnv.asset"`; re-save both canonical presets (F21
 stale `room:` shape). **`ConfigMode` + `ResolveEffective` survive — no deletion** (owner
-reversal). **Delete `UnityEnvInspector.cs`** (subsumed — F34; stub fallback on record).
+reversal). **`UnityEnvInspector.cs` survives the flip** (owner ruling, session 15: nothing
+requires its absence — it compiles clean against the grown class and no door checks for it;
+Elliot deletes it himself at adopt-packages time).
 Both platforms with pipeline assets; `--build-env` migration; catalog goes keyless directly
 (all four dead keys dropped outright — MIS never carries the collapsed map); dispatch workflow; define renames in app code (`OUTERNET_*`); delete
 `Assets/Settings/Build Profiles/Magic Leap 2.asset` (F19); delete the
