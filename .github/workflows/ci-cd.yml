@@ -28,11 +28,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - run: uv run preflight-python
+      - shell: bash
+        run: uvx --from release-devkit==${{ env.RELEASE_DEVKIT_VERSION }} publish-stable --dry-run
 
   compile-check:
     if: github.event_name != 'workflow_run' && github.ref != 'refs/heads/main'
@@ -45,22 +48,9 @@ jobs:
       execute-method: Outernet.EnvironmentFixtureSelfTest.Run
     secrets: inherit
 
-  publish-dry-run:
-    if: github.event_name != 'workflow_run' && github.ref != 'refs/heads/main'
-    needs: [check]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@v7
-      - shell: bash
-        run: uvx --from release-devkit==${{ env.RELEASE_DEVKIT_VERSION }} publish-stable --dry-run
-
   ensure-release-pr:
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    needs: [check, publish-dry-run, compile-check]
+    needs: [check, compile-check]
     runs-on: ubuntu-latest
     permissions:
       contents: write
