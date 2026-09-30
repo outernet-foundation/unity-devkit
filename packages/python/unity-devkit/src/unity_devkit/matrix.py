@@ -1,24 +1,36 @@
+from __future__ import annotations
+
 import json
 from pathlib import Path
+from typing import Annotated
 
-from .projects import discover_projects
+import typer
+
+from .license_restore import license_cache_tag
 from .player_build import LICENSE_IMAGE_MODULE, PLATFORM_CONFIGS, UNITYCI_IMAGE_REVISION, read_editor_version
+from .projects import ProjectEntry, discover_projects
+
+build_app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
+compile_check_app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 
 
-def build_matrix() -> None:
-    projects = discover_projects()
+@build_app.command()
+def build_matrix(
+    project: Annotated[
+        str | None, typer.Option(help="Restrict the matrix to one project (dispatch scoping in multi-app repos)")
+    ] = None,
+) -> None:
+    projects = filtered_projects(project)
     matrix: list[dict[str, str]] = []
-    editor_versions: set[str] = set()
 
-    for name, project in projects.items():
-        if not project.builds:
+    for name, entry in projects.items():
+        if not entry.builds:
             continue
-        version = read_editor_version(project.path)
-        editor_versions.add(version)
-        for platform in project.builds:
+        version = read_editor_version(entry.path)
+        for platform in entry.builds:
             image_module = PLATFORM_CONFIGS[platform]["unityci_image_module"]
             matrix.append({
-                "project": str(project.path.relative_to(Path.cwd())),
+                "project": str(entry.path.relative_to(Path.cwd())),
                 "project-name": name,
                 "cache-key": name.lower(),
                 "platform": platform,
@@ -26,27 +38,39 @@ def build_matrix() -> None:
                 "editor-image": f"unityci/editor:{version}-{image_module}-{UNITYCI_IMAGE_REVISION}",
             })
 
-    if not editor_versions:
+    if not matrix:
         raise SystemExit(
-            "No projects with builds declared — build-unity-matrix needs at least one unity-devkit.json with a non-empty 'platforms' map"
+            "No projects with builds declared — build-unity-matrix needs at least one unity-devkit.json "
+            "with a non-empty 'platforms' map"
         )
-    license_version = max(editor_versions)
     print(f"matrix={json.dumps({'include': matrix})}")
-    print(f"license-image=unityci/editor:{license_version}-{LICENSE_IMAGE_MODULE}-{UNITYCI_IMAGE_REVISION}")
+    print(f"license-tag={license_cache_tag()}")
 
 
-def compile_check_matrix() -> None:
-    projects = discover_projects()
+@compile_check_app.command()
+def compile_check_matrix(
+    project: Annotated[
+        str | None, typer.Option(help="Restrict the matrix to one project (dispatch scoping in multi-app repos)")
+    ] = None,
+) -> None:
+    projects = filtered_projects(project)
     matrix: list[dict[str, str]] = []
-    editor_versions: set[str] = set()
 
-    for name, project in projects.items():
-        version = read_editor_version(project.path)
-        editor_versions.add(version)
+    for name, entry in projects.items():
+        version = read_editor_version(entry.path)
         matrix.append({
             "project-name": name,
             "editor-image": f"unityci/editor:{version}-{LICENSE_IMAGE_MODULE}-{UNITYCI_IMAGE_REVISION}",
         })
 
     print(f"matrix={json.dumps({'include': matrix})}")
-    print(f"license-image=unityci/editor:{max(editor_versions)}-{LICENSE_IMAGE_MODULE}-{UNITYCI_IMAGE_REVISION}")
+    print(f"license-tag={license_cache_tag()}")
+
+
+def filtered_projects(project: str | None) -> dict[str, ProjectEntry]:
+    projects = discover_projects()
+    if project is None:
+        return projects
+    if project not in projects:
+        raise SystemExit(f"Unknown project '{project}'. Valid: {', '.join(projects)}")
+    return {project: projects[project]}
