@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 from functools import partial
 from pathlib import Path
@@ -23,7 +24,7 @@ def test_prepare_skips_nuget_restore_without_packages_config(tmp_path: Path, mon
 def test_prepare_runs_nuget_restore_for_nuget_consumer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[Call] = []
     monkeypatch.setattr(player_build, "bash", partial(record_call, calls))
-    monkeypatch.setattr(player_build.shutil, "which", present_tool)
+    monkeypatch.setattr(shutil, "which", present_tool)
     (tmp_path / "Assets").mkdir()
     (tmp_path / "Assets" / "packages.config").write_text('<?xml version="1.0"?>\n')
 
@@ -38,7 +39,7 @@ def test_prepare_runs_nuget_restore_for_nuget_consumer(tmp_path: Path, monkeypat
 def test_prepare_provisions_dotnet_sdk_when_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[Call] = []
     monkeypatch.setattr(player_build, "bash", partial(record_call, calls))
-    monkeypatch.setattr(player_build.shutil, "which", absent_tool)
+    monkeypatch.setattr(shutil, "which", absent_tool)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     (tmp_path / "Assets").mkdir()
     (tmp_path / "Assets" / "packages.config").write_text('<?xml version="1.0"?>\n')
