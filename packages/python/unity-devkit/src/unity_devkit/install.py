@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import os
-import shutil
 from pathlib import Path
+from subprocess import CalledProcessError
 from typing import Annotated
 
 import typer
-from bashrun.bash import bash, bash_check, bash_handoff, bash_output
+from bashrun.bash import bash, bash_handoff, bash_output
 
-from .projects import discover_projects
+from ci_devkit.builds import build_reference, build_repository, list_build_tags, pull_build
+from ci_devkit.setup_oras import install_oras
+
 from .player_build import build_player
+from .projects import discover_projects
 
 INSTALLABLE_TARGETS = {"AndroidMobile", "MagicLeap2", "Linux"}
 ADB_TARGETS = {"AndroidMobile", "MagicLeap2"}
@@ -79,21 +82,15 @@ def main(
     if serial and target_name not in ADB_TARGETS:
         print(f"Warning: --serial is ignored for target '{target_name}'")
 
-    package_name = f"{project_name}-{target_name}".lower()
-
     if list_tags:
-        _require_oras()
-        reference_base = _resolve_reference_base(package_name)
-        _login_ghcr()
-        if bash_check(f"oras repo tags {reference_base}"):
-            output = bash_output(f"oras repo tags {reference_base}")
-            if output.strip():
-                print(f"Available tags for {reference_base}:")
-                print(output, end="")
-            else:
-                print(f"No tags found for {reference_base}")
-        else:
-            print(f"No tags found for {reference_base}")
+        install_oras()
+        registry = _builds_registry()
+        username, token = _registry_credentials()
+        tags = list_build_tags(registry, project_name, target_name, registry_username=username, registry_token=token)
+        if tags:
+            print(f"Available tags for {build_repository(registry, project_name, target_name)}:")
+            for available_tag in tags:
+                print(available_tag)
         return
 
     if build_locally:
@@ -119,9 +116,9 @@ def main(
 
         tag = f"run-{run}" if run else resolved_branch.replace("/", "-")
 
-        reference_base = _resolve_reference_base(package_name)
-        reference = f"{reference_base}:{tag}"
-        cache_path = CACHE_ROOT / tag / package_name
+        registry = _builds_registry()
+        reference = build_reference(registry, project_name, target_name, tag)
+        cache_path = CACHE_ROOT / tag / f"{project_name}-{target_name}".lower()
 
         if dry_run:
             print(f"Would pull: {reference}")
@@ -133,14 +130,22 @@ def main(
                 print("Would extract build.tar and launch the executable")
             return
 
-        _require_oras()
-        _login_ghcr()
+        install_oras()
+        username, token = _registry_credentials()
 
         if cache_path.is_dir() and any(cache_path.iterdir()):
             print(f"Using cached build: {cache_path}")
         else:
             cache_path.mkdir(parents=True, exist_ok=True)
-            bash(f"oras pull {reference} -o {cache_path}")
+            pull_build(
+                registry,
+                project_name,
+                target_name,
+                tag,
+                cache_path,
+                registry_username=username,
+                registry_token=token,
+            )
             if target_name == "Linux":
                 tar_path = cache_path / "build.tar"
                 if tar_path.exists():
@@ -183,20 +188,15 @@ def main(
         bash_handoff(str(executable))
 
 
-def _require_oras() -> None:
-    if not shutil.which("oras"):
-        print("Error: oras is not on PATH. Install it:")
-        print("  macOS:  brew install oras")
-        print("  Linux:  https://oras.land/docs/install")
-        print("  Windows: scoop install oras")
-        raise SystemExit(1)
-
-
-def _resolve_reference_base(package_name: str) -> str:
+def _builds_registry() -> str:
     owner_repo = bash_output("gh repo view --json nameWithOwner --jq .nameWithOwner").strip()
-    return f"ghcr.io/{owner_repo}/builds/{package_name}".lower()
+    return f"ghcr.io/{owner_repo}/builds"
 
 
-def _login_ghcr() -> None:
-    token = bash_output("gh auth token").strip()
-    bash("oras login ghcr.io --username oauth2 --password-stdin", stdin_text=token)
+def _registry_credentials() -> tuple[str | None, str | None]:
+    try:
+        token = bash_output("gh auth token").strip()
+    except CalledProcessError:
+        print("gh CLI not authenticated; falling back to ambient registry credentials")
+        return None, None
+    return "oauth2", token

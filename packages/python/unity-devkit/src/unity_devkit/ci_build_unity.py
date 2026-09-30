@@ -8,6 +8,7 @@ import typer
 from bashrun.bash import bash
 from pydantic_settings import BaseSettings
 
+from ci_devkit.builds import build_repository, push_build
 from ci_devkit.cache import restore, save
 from ci_devkit.ci_step import ci_step
 from ci_devkit.setup import configure_git, install_dotnet
@@ -107,7 +108,6 @@ def ci_build_unity(
         if not artifact_directory.is_dir() or not any(artifact_directory.iterdir()):
             print("No build artifacts to push")
         else:
-            reference_base = f"{builds_registry}/{project}-{platform}".lower()
             tags = (branch_slug, f"run-{run_number}")
             if platform == "Linux":
                 staging = Path("/tmp/unity-builds-push")
@@ -116,17 +116,16 @@ def ci_build_unity(
                 bash(f"tar -cf {tar_path} -C {artifact_directory} .")
                 try:
                     for build_tag in tags:
-                        bash(f"oras push {reference_base}:{build_tag} build.tar", cwd=staging)
+                        push_build(builds_registry, project, platform, build_tag, staging, ["build.tar"])
                 finally:
                     tar_path.unlink(missing_ok=True)
             else:
-                joined = " ".join(
-                    sorted(
-                        str(path.relative_to(artifact_directory))
-                        for path in artifact_directory.rglob("*")
-                        if path.is_file()
-                    )
+                paths = sorted(
+                    str(path.relative_to(artifact_directory))
+                    for path in artifact_directory.rglob("*")
+                    if path.is_file()
                 )
                 for build_tag in tags:
-                    bash(f"oras push {reference_base}:{build_tag} {joined}", cwd=artifact_directory)
-            print(f"Pushed build artifacts: {reference_base} ({', '.join(tags)})")
+                    push_build(builds_registry, project, platform, build_tag, artifact_directory, paths)
+            repository = build_repository(builds_registry, project, platform)
+            print(f"Pushed build artifacts: {repository} ({', '.join(tags)})")
