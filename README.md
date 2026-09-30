@@ -1,6 +1,6 @@
 # unity-devkit
 
-Unity build, license, and CI tooling. Projects are discovered via a per-project `unity-devkit.json` at each Unity project root: each carries a stable `name` (the workflow contract: matrix, artifacts, `--project`) and an optional `platforms` map whose keys are the build targets. File presence is the opt-in — a project without one is never touched — and `ProjectSettings/ProjectVersion.txt` inside each project remains the editor-version truth. Consumers inline the Unity CI jobs in their own `ci-cd.yml` (see [Consuming from another repo](#consuming-from-another-repo)); unity-devkit is consumed as a `uvx` tool, never a project dependency.
+Unity build, license, and CI tooling. Projects are discovered via a per-project `unity-devkit.json` at each Unity project root: each carries a stable `name` (the workflow contract: matrix, artifacts, `--project`) and an optional `platforms` map whose keys are the build targets. File presence is the opt-in — a project without one is never touched — and `ProjectSettings/ProjectVersion.txt` inside each project remains the editor-version truth. Consumers inline the Unity CI jobs in their own `ci-cd.yml` (see [Consuming from another repo](#consuming-from-another-repo)); unity-devkit is a dev-group dependency under each consumer's committed `uv.lock`.
 
 ## Setup
 
@@ -30,12 +30,9 @@ Every command accepts `--help`.
 
 ## Consuming from another repo
 
-Unity CI is inline: no reusable workflows, no SHA pins. Pin the package version in your workflow `env:` and call the verbs via `uvx` — unity-devkit is a tool, not a consumer project dependency, so no `dependencies` entry is needed. The compile-check shape (player builds swap `compile-check-unity-matrix`/`compile-check-unity` for `build-unity-matrix`/`ci-build-unity`):
+Unity CI is inline: no reusable workflows, no SHA pins. Add unity-devkit to your dev group (`uv add --group dev unity-devkit`) — the committed `uv.lock` is the version surface, so the verbs run as plain `uv run` against the synced workspace. The compile-check shape (player builds swap `compile-check-unity-matrix`/`compile-check-unity` for `build-unity-matrix`/`ci-build-unity`):
 
 ```yaml
-env:
-  UNITY_DEVKIT_VERSION: 0.1.21
-
 jobs:
   unity-matrix:
     if: github.ref != 'refs/heads/main'
@@ -49,7 +46,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true, save-cache: "false"}
       - id: matrix
-        run: uvx --from unity-devkit==${UNITY_DEVKIT_VERSION} compile-check-unity-matrix >> "$GITHUB_OUTPUT"
+        run: uv run compile-check-unity-matrix >> "$GITHUB_OUTPUT"
 
   unity-check:
     if: github.ref != 'refs/heads/main'
@@ -69,10 +66,11 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with: {enable-cache: true, save-cache: "false"}
       - run: >-
-          uvx --from unity-devkit==${UNITY_DEVKIT_VERSION} compile-check-unity
+          uv run compile-check-unity
           --project ${{ matrix.project-name }}
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          CI_REGISTRY_TOKEN: ${{ github.token }}
+          CI_REGISTRY_USERNAME: ${{ github.actor }}
           LICENSE_CACHE_TAG: ${{ needs.unity-matrix.outputs.license-tag }}
           CACHE_REGISTRY: ghcr.io/${{ github.repository }}/cache
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -82,7 +80,7 @@ jobs:
 
 The license restore/activation and the UPM package cache are handled inside the verbs — the leg only supplies the env above. Runner self-hosted labels beyond `self-hosted` need an [actionlint config](https://github.com/rhysd/actionlint/blob/main/docs/config.md) declaring them (`.github/actionlint.yaml`).
 
-For local dev, invoke the same entry points via `uvx --from unity-devkit build-unity`, `uvx --from unity-devkit install`, etc. Each Unity project carries a `unity-devkit.json` with a `name` and (where buildable) a `platforms` map. To test an unreleased change, pin a git ref: `uvx --from git+https://github.com/outernet-foundation/unity-devkit.git@<sha> build-unity`.
+For local dev, invoke the same entry points via `uv run build-unity`, `uv run install`, etc. Each Unity project carries a `unity-devkit.json` with a `name` and (where buildable) a `platforms` map. To test an unreleased change, consume a published `-dev.<run-id>` prerelease (`uv add --group dev unity-devkit==<dev version>`) and revert.
 
 ## Development
 
