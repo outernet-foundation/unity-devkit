@@ -33,6 +33,26 @@ def test_compile_error_fails_despite_zero_exit(tmp_path: Path, monkeypatch: pyte
         player_build.run_unity_batchmode(tmp_path, extra_failure_signatures=("error CS",))
 
 
+def test_script_updater_noise_ignored(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    noise = (
+        "[Script Updater] Library/PackageCache/com.cysharp.r3/Runtime/UnityXR.cs(9,89): error CS0246: type not found"
+    )
+    patch_editor(monkeypatch, write_fake_editor(tmp_path, noise, 0))
+
+    player_build.run_unity_batchmode(tmp_path, extra_failure_signatures=("error CS",))
+
+
+def test_compile_error_after_script_updater_noise_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    noise = (
+        "[Script Updater] Library/PackageCache/com.cysharp.r3/Runtime/UnityXR.cs(9,89): error CS0246: type not found"
+    )
+    real_error = "Assets/Foo.cs(1,1): error CS1002: ; expected"
+    patch_editor(monkeypatch, write_fake_editor(tmp_path, f"{noise}\n{real_error}", 0))
+
+    with pytest.raises(SystemExit, match="silent failure"):
+        player_build.run_unity_batchmode(tmp_path, extra_failure_signatures=("error CS",))
+
+
 def test_clean_log_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     patch_editor(monkeypatch, write_fake_editor(tmp_path, "DisplayProgressbar: renewal", 0))
 

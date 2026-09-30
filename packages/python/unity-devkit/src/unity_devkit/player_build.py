@@ -84,6 +84,11 @@ def run_unity_batchmode(
     lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
     failure_block = None
     for index, line in enumerate(lines):
+        # The API-updater side-pass parses candidate scripts without honoring #if guards or
+        # asmdef references, so it reports CS errors against code excluded from compilation;
+        # the compiler itself logs real errors unprefixed.
+        if line.startswith("[Script Updater]"):
+            continue
         if not any(signature in line for signature in signatures):
             continue
         block: list[str] = []
