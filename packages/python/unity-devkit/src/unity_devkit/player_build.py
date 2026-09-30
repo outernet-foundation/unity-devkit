@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import shutil
 import sys
@@ -27,6 +28,14 @@ PLATFORM_CONFIGS: dict[str, PlatformConfig] = {
 UNITYCI_IMAGE_REVISION = "3"
 LICENSE_IMAGE_MODULE = "linux-il2cpp"
 PLAYERBUILD_ENTRY = "Outernet.PlayerBuild.Entry"
+
+# Pinned to the v2026.07.21 tag of dotnet/install-scripts (raw at the commit SHA, which
+# is immutable, unlike the moving https://dot.net/v1/dotnet-install.sh redirect).
+DOTNET_INSTALL_SCRIPT_COMMIT = "da3ce11ba63f3dbb0fb835d41bda2665d5c48e84"
+DOTNET_INSTALL_SCRIPT_URL = (
+    f"https://raw.githubusercontent.com/dotnet/install-scripts/{DOTNET_INSTALL_SCRIPT_COMMIT}/src/dotnet-install.sh"
+)
+DOTNET_SDK_VERSION = "8.0.421"
 
 # Unity exits 0 while reporting fatal package-manager errors only in the editor log. Every
 # Unity invocation goes through run_unity_batchmode, which scans the captured log for these
@@ -151,8 +160,18 @@ def prepare_unity_project(project_path: Path) -> None:
     # their manifest); elsewhere it would demand the dotnet SDK + tool manifest and
     # litter Assets/ with NuGet.config/packages.config/Packages.meta scaffolding.
     if (project_path / "Assets" / "packages.config").exists():
-        bash("dotnet tool restore")
-        bash(f"dotnet nugetforunity restore {project_path}")
+        # The unityci editor containers ship no dotnet CLI; provision the pinned SDK on
+        # demand into ~/.dotnet (persisting across runs on self-hosted runners).
+        env: dict[str, str] = {}
+        if not shutil.which("dotnet"):
+            install_dir = Path.home() / ".dotnet"
+            if not (install_dir / "dotnet").exists():
+                script_path = Path(tempfile.gettempdir()) / "dotnet-install.sh"
+                bash(f"curl -fsSL {DOTNET_INSTALL_SCRIPT_URL} -o {script_path}")
+                bash(f"bash {script_path} --version {DOTNET_SDK_VERSION} --install-dir {install_dir}")
+            env = {"PATH": f"{install_dir}{os.pathsep}{os.environ['PATH']}", "DOTNET_CLI_TELEMETRY_OPTOUT": "1"}
+        bash("dotnet tool restore", env=env)
+        bash(f"dotnet nugetforunity restore {project_path}", env=env)
 
 
 def parse_environment_fields(entries: Sequence[str]) -> dict[str, str]:
