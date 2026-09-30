@@ -10,10 +10,11 @@ from pydantic_settings import BaseSettings
 
 from ci_devkit.cache import restore, save
 from ci_devkit.ci_step import ci_step
-from .license_restore import restore_license
 from ci_devkit.setup import configure_git, install_dotnet
 from ci_devkit.setup_oras import install_oras
+from .license_restore import restore_or_activate_license
 from .player_build import build_player, parse_environment_fields, resolve_unity_project
+from .upm_cache import restore_upm_cache, save_upm_cache
 
 
 class Settings(BaseSettings):
@@ -26,7 +27,6 @@ app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 @app.command()
 def ci_build_unity(
     project: Annotated[str, typer.Option(help="Project name")],
-    project_path: Annotated[Path, typer.Option(help="Path to Unity project")],
     platform: Annotated[str, typer.Option(help="Target platform")],
     cache_key: Annotated[str, typer.Option(help="Cache key prefix")],
     registry: Annotated[str, typer.Option(help="OCI registry path for the library cache")],
@@ -51,7 +51,9 @@ def ci_build_unity(
         configure_git(settings.github_workspace)
         install_dotnet("8.0")
         install_oras()
-        restore_license()
+        restore_or_activate_license()
+        project_path = resolve_unity_project(project).path
+        restore_upm_cache(project_path)
 
     branch_slug = branch.replace("/", "-")
     tag = f"{cache_key}-{platform}-{branch_slug}"
@@ -60,13 +62,6 @@ def ci_build_unity(
 
     with ci_step("Restore library cache"):
         restore(registry, "unity-library", tag, Path("."), fallback_tags=fallback_tags)
-
-    with ci_step("Prepare build"):
-        unity_project_path = resolve_unity_project(project).path
-        if unity_project_path.resolve() != project_path.resolve():
-            raise SystemExit(
-                f"--project-path {project_path} does not match discovered project '{project}' at {unity_project_path}"
-            )
 
     with ci_step(f"Build {project} [{platform}]"):
         build_player(
@@ -85,7 +80,11 @@ def ci_build_unity(
         if package_cache.exists():
             shutil.rmtree(package_cache)
 
-        save(registry, "unity-library", tag, Path("."), [f"{project_path}/Library/"])
+        relative_project_path = project_path.relative_to(Path.cwd())
+        save(registry, "unity-library", tag, Path("."), [f"{relative_project_path}/Library/"])
+
+    with ci_step("Save UPM cache"):
+        save_upm_cache(project_path)
 
     with ci_step("Collect build artifacts"):
         build_directory = project_path / "Build"
@@ -98,6 +97,10 @@ def ci_build_unity(
                 for file in build_directory.rglob("*"):
                     if file.suffix in {".apk", ".exe"}:
                         shutil.copy2(file, artifact_directory / file.name)
+                for report in build_directory.rglob("BuildReport.json"):
+                    destination = artifact_directory / report.relative_to(build_directory)
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(report, destination)
 
     with ci_step("Push build artifacts"):
         artifact_directory = Path("/tmp/unity-builds")
@@ -117,7 +120,13 @@ def ci_build_unity(
                 finally:
                     tar_path.unlink(missing_ok=True)
             else:
-                joined = " ".join(sorted(p.name for p in artifact_directory.iterdir() if p.is_file()))
+                joined = " ".join(
+                    sorted(
+                        str(path.relative_to(artifact_directory))
+                        for path in artifact_directory.rglob("*")
+                        if path.is_file()
+                    )
+                )
                 for build_tag in tags:
                     bash(f"oras push {reference_base}:{build_tag} {joined}", cwd=artifact_directory)
             print(f"Pushed build artifacts: {reference_base} ({', '.join(tags)})")

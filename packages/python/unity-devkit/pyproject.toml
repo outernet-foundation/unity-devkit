@@ -14,15 +14,14 @@ dependencies = [
 [project.scripts]
 activate-unity-license = "unity_devkit.license:activate_app"
 build-unity = "unity_devkit.build_unity:app"
-build-unity-matrix = "unity_devkit.matrix:build_matrix"
+build-unity-matrix = "unity_devkit.matrix:build_app"
 ci-build-unity = "unity_devkit.ci_build_unity:app"
 compile-check-unity = "unity_devkit.compile_check_unity:app"
-compile-check-unity-matrix = "unity_devkit.matrix:compile_check_matrix"
+compile-check-unity-matrix = "unity_devkit.matrix:compile_check_app"
 install = "unity_devkit.install:app"
 lock-unity = "unity_devkit.lock_unity:app"
 test-unity = "unity_devkit.test_unity:app"
 unity-license-tag = "unity_devkit.license_restore:tag_app"
-unity-dispatch = "unity_devkit.dispatch_workflow_generator:app"
 
 [build-system]
 requires = ["hatchling"]

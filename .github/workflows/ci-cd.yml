@@ -1,0 +1,148 @@
+name: CI/CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [dev]
+
+# Cancel superseded runs on the same branch, except main — where publish-stable
+# must never die mid-release (overlapping release merges queue instead).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_DEVKIT_VERSION: 0.1.25
+
+jobs:
+  check:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv run preflight-python
+      - shell: bash
+        run: uvx --from release-devkit==${{ env.RELEASE_DEVKIT_VERSION }} publish-stable --dry-run
+
+  unity-matrix:
+    if: github.ref != 'refs/heads/main'
+    needs: [check]
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      license-tag: ${{ steps.matrix.outputs.license-tag }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          save-cache: "false"
+      - id: matrix
+        run: uv run compile-check-unity-matrix >> "$GITHUB_OUTPUT"
+
+  compile-check:
+    if: github.ref != 'refs/heads/main'
+    needs: [unity-matrix]
+    permissions:
+      contents: read
+      packages: write
+    runs-on:
+      - self-hosted
+      - unity
+    container: ${{ matrix.editor-image }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.unity-matrix.outputs.matrix) }}
+    steps:
+      - name: Wipe workspace
+        run: |
+          find "$GITHUB_WORKSPACE" -mindepth 1 -delete
+          rm -rf ~/.cache/Unity
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          save-cache: "false"
+      - run: >-
+          uv run compile-check-unity --project ${{ matrix.project-name }}
+          --execute-method Outernet.EnvironmentFixtureSelfTest.Run
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LICENSE_CACHE_TAG: ${{ needs.unity-matrix.outputs.license-tag }}
+          CACHE_REGISTRY: ghcr.io/${{ github.repository }}/cache
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+
+  ensure-release-pr:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - shell: bash
+        run: uvx --from release-devkit==${{ env.RELEASE_DEVKIT_VERSION }} ensure-release-pr
+
+  publish-stable:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: astral-sh/setup-uv@v7
+      - shell: bash
+        run: uvx --from release-devkit==${{ env.RELEASE_DEVKIT_VERSION }} publish-stable
+        env:
+          NPM_CONFIG_LOGLEVEL: verbose
+
+  publish-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    needs: [compile-check]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - shell: bash
+        run: uvx --from release-devkit==${{ env.RELEASE_DEVKIT_VERSION }} publish-dev
+        env:
+          NPM_CONFIG_LOGLEVEL: verbose

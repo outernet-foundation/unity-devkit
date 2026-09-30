@@ -1,23 +1,17 @@
 from __future__ import annotations
 
-from pathlib import Path
+from typing import Annotated
 
 import typer
-from bashrun.bash import bash
 from pydantic_settings import BaseSettings
 
-from ci_devkit.cache import restore, save
-from .license_restore import license_cache_tag
 from ci_devkit.setup import configure_git
 from ci_devkit.setup_oras import install_oras
+from .license_restore import activate_license, restore_or_activate_license
 
 
 class Settings(BaseSettings):
-    cache_registry: str
     github_workspace: str
-    unity_email: str
-    unity_password: str
-    unity_serial: str
 
 
 settings = Settings.model_validate({})
@@ -25,23 +19,14 @@ activate_app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=F
 
 
 @activate_app.command()
-def activate_main(oras_push: bool = typer.Option(False, help="Push activated ULF to ORAS cache")) -> None:
+def activate_main(
+    oras_push: Annotated[
+        bool, typer.Option(help="Restore from the ORAS cache on miss and push the activated ULF back")
+    ] = False,
+) -> None:
     configure_git(settings.github_workspace)
     install_oras()
-
-    license_directory = Path.home() / ".local" / "share" / "unity3d" / "Unity"
-    license_directory.mkdir(parents=True, exist_ok=True)
-
-    tag = license_cache_tag()
-    cache_hit = False
     if oras_push:
-        cache_hit = restore(settings.cache_registry, "unity-license", tag, license_directory)
-
-    if not cache_hit:
-        bash(
-            f'unity-editor -batchmode -nographics -quit -serial "{settings.unity_serial}"'
-            f' -username "{settings.unity_email}" -password "{settings.unity_password}" -logFile /dev/stdout'
-        )
-
-    if oras_push and not cache_hit:
-        save(settings.cache_registry, "unity-license", tag, license_directory, ["Unity_lic.ulf"])
+        restore_or_activate_license()
+    else:
+        activate_license()
