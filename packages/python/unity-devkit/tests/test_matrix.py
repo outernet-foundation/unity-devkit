@@ -21,7 +21,6 @@ def test_matrix_emits_entries_from_catalog(
 ) -> None:
     write_repository(tmp_path, builds=["Linux"])
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("LICENSE_CACHE_TAG", raising=False)
 
     matrix.build_matrix()
 
@@ -29,15 +28,13 @@ def test_matrix_emits_entries_from_catalog(
     include = json.loads(lines[0][len("matrix=") :])["include"]
     assert include == [
         {
-            "project": str(Path("apps") / "Tool"),
             "project-name": "tool",
-            "cache-key": "tool",
             "platform": "Linux",
             "unityci-image-module": "linux-il2cpp",
             "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3",
         }
     ]
-    assert lines[1].startswith("license-tag=v-")
+    assert lines[1].startswith("license=v-")
 
 
 def test_matrix_fails_without_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -73,32 +70,18 @@ def test_matrix_project_filter_fails_on_unknown_project(tmp_path: Path, monkeypa
         matrix.build_matrix(project="missing")
 
 
-def test_matrix_honors_license_cache_tag_override(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    write_repository(tmp_path, builds=["Linux"])
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("LICENSE_CACHE_TAG", "v-pinned")
-
-    matrix.build_matrix()
-
-    lines = capsys.readouterr().out.splitlines()
-    assert lines[1] == "license-tag=v-pinned"
-
-
 def test_check_matrix_includes_path_only_projects(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     write_repository(tmp_path)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("LICENSE_CACHE_TAG", raising=False)
 
     matrix.compile_check_matrix()
 
     lines = capsys.readouterr().out.splitlines()
     include = json.loads(lines[0][len("matrix=") :])["include"]
     assert include == [{"project-name": "tool", "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3"}]
-    assert lines[1].startswith("license-tag=v-")
+    assert lines[1].startswith("license=v-")
 
 
 def test_check_matrix_project_filter_scopes_to_one_project(

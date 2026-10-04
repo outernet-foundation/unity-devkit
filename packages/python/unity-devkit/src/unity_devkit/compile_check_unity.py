@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings
 from ci_devkit.ci_step import ci_step
 from ci_devkit.setup import configure_git
 from ci_devkit.setup_oras import install_oras
+from .identity import cache_registry
 from .license_restore import restore_or_activate_license
 from .player_build import prepare_unity_project, resolve_unity_project, run_unity_batchmode
 from .upm_cache import restore_upm_cache, save_upm_cache
@@ -25,6 +26,13 @@ COMPILE_ERROR_SIGNATURES = ("error CS",)
 @app.command()
 def compile_check_unity(
     project: Annotated[str, typer.Option(help="Unity project name (the 'name' field of its unity-devkit.json)")],
+    registry: Annotated[str, typer.Option(help="OCI registry root; the verb derives the cache namespace")],
+    license_pin: Annotated[
+        str,
+        typer.Option(
+            "--license", help="License cache pin for this run (the matrix verb's license output; empty uses today's)"
+        ),
+    ] = "",
     execute_method: Annotated[
         str | None,
         typer.Option(help="Static method to run after load (Class.Method) — one editor session per invocation"),
@@ -36,12 +44,13 @@ def compile_check_unity(
 ) -> None:
     settings = Settings.model_validate({})
     project_path = resolve_unity_project(project).path
+    cache_namespace = cache_registry(registry)
 
     with ci_step("Setup"):
         configure_git(settings.github_workspace)
         install_oras()
-        restore_or_activate_license()
-        restore_upm_cache(project_path)
+        restore_or_activate_license(cache_namespace, license_pin or None)
+        restore_upm_cache(project_path, cache_namespace)
 
     extra_flags = ""
     if build_target:
@@ -51,5 +60,5 @@ def compile_check_unity(
     print(f"Compile-checking {project}...")
     prepare_unity_project(project_path)
     run_unity_batchmode(project_path, extra_flags, extra_failure_signatures=COMPILE_ERROR_SIGNATURES)
-    save_upm_cache(project_path)
+    save_upm_cache(project_path, cache_namespace)
     print("  Compiles clean")

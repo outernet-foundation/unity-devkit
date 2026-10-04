@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import random
 import time
 from datetime import UTC, datetime
@@ -14,7 +13,6 @@ from ci_devkit.cache import restore, save
 
 
 class Settings(BaseSettings):
-    cache_registry: str
     unity_email: str
     unity_password: str
     unity_serial: str
@@ -32,17 +30,16 @@ def tag_main() -> None:
     print(license_cache_tag())
 
 
-def restore_or_activate_license() -> None:
-    settings = Settings.model_validate({})
+def restore_or_activate_license(registry: str, license_tag: str | None = None) -> None:
     license_directory = Path.home() / ".local" / "share" / "unity3d" / "Unity"
     license_directory.mkdir(parents=True, exist_ok=True)
-    tag = license_cache_tag()
+    tag = license_tag or license_cache_tag()
 
     for attempt in range(1, ACTIVATION_ATTEMPTS + 1):
-        if restore(settings.cache_registry, LICENSE_CACHE_NAME, tag, license_directory):
+        if restore(registry, LICENSE_CACHE_NAME, tag, license_directory):
             return
         if license_activated():
-            save(settings.cache_registry, LICENSE_CACHE_NAME, tag, license_directory, ["Unity_lic.ulf"])
+            save(registry, LICENSE_CACHE_NAME, tag, license_directory, ["Unity_lic.ulf"])
             return
         if attempt == ACTIVATION_ATTEMPTS:
             break
@@ -75,10 +72,7 @@ def license_activated() -> bool:
     return True
 
 
-# LICENSE_CACHE_TAG env pins the tag for a whole CI run; without it, each call
-# re-reads "now UTC" and a run straddling midnight save/restore-misses itself.
+# A whole CI run pins one tag (the matrix verb's license output, passed as
+# --license) so a run straddling midnight UTC does not save/restore-miss itself.
 def license_cache_tag() -> str:
-    override = os.environ.get("LICENSE_CACHE_TAG")
-    if override:
-        return override
     return f"v-{datetime.now(UTC).strftime('%Y-%m-%d')}"

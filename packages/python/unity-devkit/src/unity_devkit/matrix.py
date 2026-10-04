@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -30,9 +29,7 @@ def build_matrix(
         for platform in entry.builds:
             image_module = PLATFORM_CONFIGS[platform]["unityci_image_module"]
             matrix.append({
-                "project": str(entry.path.relative_to(Path.cwd())),
                 "project-name": name,
-                "cache-key": name.lower(),
                 "platform": platform,
                 "unityci-image-module": image_module,
                 "editor-image": f"unityci/editor:{version}-{image_module}-{UNITYCI_IMAGE_REVISION}",
@@ -44,7 +41,7 @@ def build_matrix(
             "with a non-empty 'platforms' map"
         )
     print(f"matrix={json.dumps({'include': matrix})}")
-    print(f"license-tag={license_cache_tag()}")
+    print(f"license={license_cache_tag()}")
 
 
 @compile_check_app.command()
@@ -64,7 +61,7 @@ def compile_check_matrix(
         })
 
     print(f"matrix={json.dumps({'include': matrix})}")
-    print(f"license-tag={license_cache_tag()}")
+    print(f"license={license_cache_tag()}")
 
 
 def filtered_projects(project: str | None) -> dict[str, ProjectEntry]:

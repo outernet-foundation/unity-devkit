@@ -11,6 +11,7 @@ from bashrun.bash import bash, bash_handoff, bash_output
 from ci_devkit.builds import build_reference, build_repository, list_build_tags, pull_build
 from ci_devkit.setup_oras import install_oras
 
+from .identity import builds_registry, cache_key
 from .player_build import build_player
 from .projects import discover_projects
 
@@ -28,10 +29,10 @@ def main(
         str | None,
         typer.Option("--target", "-t", help="Device target (AndroidMobile, MagicLeap2, Linux)"),
     ] = None,
-    branch: Annotated[
-        str | None,
-        typer.Option("--branch", "-b", help="Branch to pull the build from (default: current git branch)"),
-    ] = None,
+    pr_number: Annotated[
+        str,
+        typer.Option("--pr-number", help="Pull-request number; empty (outside PRs) selects the dev cache-key tag"),
+    ] = "",
     run: Annotated[
         int | None,
         typer.Option("--run", "-r", help="Specific CI run number (github.run_number) to pull"),
@@ -44,7 +45,7 @@ def main(
             "-B",
             help=(
                 "Build the project locally via `build-unity` and install the produced APK / "
-                "linux executable. Skips the OCI pull; --branch / --run are ignored."
+                "linux executable. Skips the OCI pull; --pr-number / --run are ignored."
             ),
         ),
     ] = False,
@@ -94,8 +95,8 @@ def main(
         return
 
     if build_locally:
-        if branch or run:
-            print("Warning: --branch / --run are ignored when --build is set")
+        if pr_number or run:
+            print("Warning: --pr-number / --run are ignored when --build is set")
         if dry_run:
             print(f"Would build {project_name} [{target_name}] locally")
             if target_name in ADB_TARGETS:
@@ -108,13 +109,8 @@ def main(
         apks = [path for path in produced if path.suffix == ".apk"]
         executables = [path for path in produced if path.suffix in {".exe", ".x86_64"}]
     else:
-        resolved_branch = branch
-        if not resolved_branch:
-            resolved_branch = bash_output("git rev-parse --abbrev-ref HEAD").strip()
-            if resolved_branch == "HEAD":
-                raise typer.BadParameter("HEAD is detached; pass --branch explicitly")
-
-        tag = f"run-{run}" if run else resolved_branch.replace("/", "-")
+        parsed_pr_number = int(pr_number) if pr_number else None
+        tag = f"run-{run}" if run else cache_key(project_name, target_name, parsed_pr_number)
 
         registry = _builds_registry()
         reference = build_reference(registry, project_name, target_name, tag)
@@ -190,7 +186,7 @@ def main(
 
 def _builds_registry() -> str:
     owner_repo = bash_output("gh repo view --json nameWithOwner --jq .nameWithOwner").strip()
-    return f"ghcr.io/{owner_repo}/builds"
+    return builds_registry(f"ghcr.io/{owner_repo}")
 
 
 def _registry_credentials() -> tuple[str | None, str | None]:
