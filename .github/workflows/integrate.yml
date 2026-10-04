@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
-      license-tag: ${{ steps.matrix.outputs.license-tag }}
+      license: ${{ steps.matrix.outputs.license }}
     steps:
       - *checkout
       - *uv-restore
@@ -84,11 +84,15 @@ jobs:
         run: find "$GITHUB_WORKSPACE" -mindepth 1 -delete; rm -rf ~/.cache/Unity
       - *checkout
       - *uv-restore
-      - run: uv run compile-check-unity --project ${{ matrix.project-name }} --execute-method Outernet.EnvironmentFixtureSelfTest.Run
+      - run: >-
+          uv run compile-check-unity
+          --project ${{ matrix.project-name }}
+          --execute-method Outernet.EnvironmentFixtureSelfTest.Run
+          --registry ghcr.io/${{ github.repository }}
+          --license ${{ needs.get-unity-matrix.outputs.license }}
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-          LICENSE_CACHE_TAG: ${{ needs.get-unity-matrix.outputs.license-tag }}
-          CACHE_REGISTRY: ghcr.io/${{ github.repository }}/cache
+          CI_REGISTRY_TOKEN: ${{ github.token }}
+          CI_REGISTRY_USERNAME: ${{ github.actor }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
