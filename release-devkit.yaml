@@ -2,11 +2,11 @@ ci_workflow: release.yml
 packages:
   unity-devkit:
     path: packages/python/unity-devkit
-    major_minor: "0.1"
+    major_minor: "0.2"
     registries:
       pypi: unity-devkit
   playerbuild:
     path: packages/unity/PlayerBuild/Assets/Package
-    major_minor: "0.1"
+    major_minor: "0.2"
     registries:
       npm: org.outernet.playerbuild
