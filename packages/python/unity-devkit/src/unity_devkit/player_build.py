@@ -197,7 +197,7 @@ def build_player(
     build: str,
     *,
     version: str = "",
-    run_number: int = 0,
+    version_code: int = 0,
     development: bool = False,
     environment_preset: str = "",
     environment_fields: dict[str, str] | None = None,
@@ -220,10 +220,10 @@ def build_player(
     if version:
         settings_path = project_path / "ProjectSettings" / "ProjectSettings.asset"
         rewritten = settings_path.read_text(encoding="utf-8")
-        for field_name, value in (("AndroidBundleVersionCode", str(run_number)), ("bundleVersion", version)):
+        for field_name, value in (("AndroidBundleVersionCode", str(version_code)), ("bundleVersion", version)):
             rewritten = replace_serialized_field(rewritten, field_name, value)
         settings_path.write_text(rewritten, encoding="utf-8")
-        print(f"Stamped bundleVersion {version} (bundleVersionCode={run_number}) into ProjectSettings")
+        print(f"Stamped bundleVersion {version} (bundleVersionCode={version_code}) into ProjectSettings")
 
     build_directory = project_path / "Build"
     before = snapshot_artifacts(build_directory)

@@ -46,7 +46,7 @@ def test_build_player_stamps_version_and_returns_artifacts(tmp_path: Path, monke
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
 
-    produced = player_build.build_player("tool", "AndroidMobile", version="0.2.7-dev+42", run_number=42)
+    produced = player_build.build_player("tool", "AndroidMobile", version="0.2.7-dev+42", version_code=42)
 
     rewritten = (project / "ProjectSettings" / "ProjectSettings.asset").read_text()
     assert "  AndroidBundleVersionCode: 42\n" in rewritten
@@ -61,7 +61,7 @@ def test_build_player_treats_the_version_string_as_opaque(tmp_path: Path, monkey
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
 
-    player_build.build_player("tool", "AndroidMobile", version="release-2026-09-27", run_number=7)
+    player_build.build_player("tool", "AndroidMobile", version="release-2026-09-27", version_code=7)
 
     rewritten = (project / "ProjectSettings" / "ProjectSettings.asset").read_text()
     assert "  bundleVersion: release-2026-09-27\n" in rewritten
@@ -75,7 +75,7 @@ def test_build_player_refuses_to_stamp_a_missing_field(tmp_path: Path, monkeypat
     monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
 
     with pytest.raises(SystemExit, match="AndroidBundleVersionCode"):
-        player_build.build_player("tool", "AndroidMobile", version="0.2.7-dev+42", run_number=42)
+        player_build.build_player("tool", "AndroidMobile", version="0.2.7-dev+42", version_code=42)
 
 
 def test_build_player_fails_when_no_artifact_was_produced(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

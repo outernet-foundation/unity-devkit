@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from bashrun.bash import bash
+from bashrun.bash import bash, bash_output
 from pydantic_settings import BaseSettings
 
 from ci_devkit.builds import build_repository, push_build
@@ -30,7 +30,9 @@ app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 def ci_build_unity(
     project: Annotated[str, typer.Option(help="Project name")],
     platform: Annotated[str, typer.Option(help="Target platform")],
-    run_number: Annotated[int, typer.Option(help="CI run number (also the bundleVersionCode)")],
+    version_code: Annotated[
+        int, typer.Option(help="Android bundleVersionCode (the per-app commit count from get-app-version)")
+    ],
     registry: Annotated[str, typer.Option(help="OCI registry root; the verb derives the cache and builds namespaces")],
     pr_number: Annotated[
         str, typer.Option(help="Pull-request number; empty on non-PR runs selects the dev cache scope")
@@ -75,7 +77,7 @@ def ci_build_unity(
             project,
             platform,
             version=version,
-            run_number=run_number,
+            version_code=version_code,
             development=development,
             environment_preset=environment_preset,
             environment_fields=fields,
@@ -99,15 +101,22 @@ def ci_build_unity(
         build_directory = project_path / "Build"
         if build_directory.is_dir():
             artifact_directory = Path("/tmp/unity-builds")
-            artifact_directory.mkdir(parents=True, exist_ok=True)
+            shutil.rmtree(artifact_directory, ignore_errors=True)
+            artifact_directory.mkdir(parents=True)
+            report_directory = Path("/tmp/unity-build-reports")
+            shutil.rmtree(report_directory, ignore_errors=True)
             if platform == "Linux":
                 shutil.copytree(build_directory, artifact_directory, dirs_exist_ok=True)
             else:
-                for file in build_directory.rglob("*"):
-                    if file.suffix in {".apk", ".exe"}:
-                        shutil.copy2(file, artifact_directory / file.name)
+                binaries = [file for file in build_directory.rglob("*") if file.suffix in {".apk", ".exe"}]
+                if len(binaries) != 1:
+                    raise SystemExit(
+                        f"build for ({project}, {platform}) must produce exactly one binary, "
+                        f"found {len(binaries)} ({', '.join(file.name for file in binaries)})"
+                    )
+                shutil.copy2(binaries[0], artifact_directory / binaries[0].name)
                 for report in build_directory.rglob("BuildReport.json"):
-                    destination = artifact_directory / report.relative_to(build_directory)
+                    destination = report_directory / report.relative_to(build_directory)
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(report, destination)
 
@@ -116,7 +125,8 @@ def ci_build_unity(
         if not artifact_directory.is_dir() or not any(artifact_directory.iterdir()):
             print("No build artifacts to push")
         else:
-            tags = (derived_cache_key, f"run-{run_number}")
+            head_sha = bash_output("git rev-parse HEAD").strip()
+            tags = (derived_cache_key, f"sha-{head_sha}")
             if platform == "Linux":
                 staging = Path("/tmp/unity-builds-push")
                 staging.mkdir(parents=True, exist_ok=True)
@@ -135,5 +145,15 @@ def ci_build_unity(
                 )
                 for build_tag in tags:
                     push_build(builds_namespace, project, platform, build_tag, artifact_directory, paths)
+
+                report_directory = Path("/tmp/unity-build-reports")
+                if report_directory.is_dir():
+                    report_paths = sorted(
+                        str(path.relative_to(report_directory)) for path in report_directory.rglob("BuildReport.json")
+                    )
+                    for build_tag in tags:
+                        push_build(
+                            builds_namespace, project, f"{platform}-report", build_tag, report_directory, report_paths
+                        )
             repository = build_repository(builds_namespace, project, platform)
             print(f"Pushed build artifacts: {repository} ({', '.join(tags)})")
