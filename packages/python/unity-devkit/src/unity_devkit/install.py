@@ -33,9 +33,9 @@ def main(
         str,
         typer.Option("--pr-number", help="Pull-request number; empty (outside PRs) selects the dev cache-key tag"),
     ] = "",
-    run: Annotated[
-        int | None,
-        typer.Option("--run", "-r", help="Specific CI run number (github.run_number) to pull"),
+    sha: Annotated[
+        str | None,
+        typer.Option("--sha", help="CI head SHA whose sha-{sha} builds-shelf tag to pull"),
     ] = None,
     serial: Annotated[str | None, typer.Option("--serial", "-s", help="adb device serial")] = None,
     build_locally: Annotated[
@@ -45,7 +45,7 @@ def main(
             "-B",
             help=(
                 "Build the project locally via `build-unity` and install the produced APK / "
-                "linux executable. Skips the OCI pull; --pr-number / --run are ignored."
+                "linux executable. Skips the OCI pull; --pr-number / --sha are ignored."
             ),
         ),
     ] = False,
@@ -95,8 +95,8 @@ def main(
         return
 
     if build_locally:
-        if pr_number or run:
-            print("Warning: --pr-number / --run are ignored when --build is set")
+        if pr_number or sha:
+            print("Warning: --pr-number / --sha are ignored when --build is set")
         if dry_run:
             print(f"Would build {project_name} [{target_name}] locally")
             if target_name in ADB_TARGETS:
@@ -110,7 +110,7 @@ def main(
         executables = [path for path in produced if path.suffix in {".exe", ".x86_64"}]
     else:
         parsed_pr_number = int(pr_number) if pr_number else None
-        tag = f"run-{run}" if run else cache_key(project_name, target_name, parsed_pr_number)
+        tag = f"sha-{sha}" if sha else cache_key(project_name, target_name, parsed_pr_number)
 
         registry = _builds_registry()
         reference = build_reference(registry, project_name, target_name, tag)

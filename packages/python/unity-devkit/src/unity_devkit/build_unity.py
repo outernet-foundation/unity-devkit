@@ -15,7 +15,9 @@ def build_unity(
         str,
         typer.Option(help="Version string to stamp into ProjectSettings.asset; empty builds unversioned"),
     ] = "",
-    run_number: Annotated[int, typer.Option(help="bundleVersionCode to stamp; local builds default to 0")] = 0,
+    version_code: Annotated[
+        int, typer.Option(help="Android bundleVersionCode to stamp; local builds default to 0")
+    ] = 0,
     development: Annotated[bool, typer.Option(help="Development build column")] = False,
     environment_preset: Annotated[
         str,
@@ -33,7 +35,7 @@ def build_unity(
         project,
         build,
         version=version,
-        run_number=run_number,
+        version_code=version_code,
         development=development,
         environment_preset=environment_preset,
         environment_fields=fields,
