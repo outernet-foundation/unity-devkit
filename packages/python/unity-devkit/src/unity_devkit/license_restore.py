@@ -9,7 +9,7 @@ import typer
 from bashrun.bash import CalledProcessError, bash
 from pydantic_settings import BaseSettings
 
-from ci_devkit.cache import restore, save
+from build_artifact_registry.cache import restore, save
 
 
 class Settings(BaseSettings):
@@ -72,7 +72,7 @@ def license_activated() -> bool:
     return True
 
 
-# A whole CI run pins one tag (the matrix verb's license output, passed as
-# --license) so a run straddling midnight UTC does not save/restore-miss itself.
+# A whole CI run pins one tag (the getter's unity-license-tag output, passed as
+# --license-cache-key) so a run straddling midnight UTC does not save/restore-miss itself.
 def license_cache_tag() -> str:
     return f"v-{datetime.now(UTC).strftime('%Y-%m-%d')}"

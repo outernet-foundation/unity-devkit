@@ -5,7 +5,6 @@ from typing import Annotated
 
 import typer
 
-from .license_restore import license_cache_tag
 from .player_build import LICENSE_IMAGE_MODULE, PLATFORM_CONFIGS, UNITYCI_IMAGE_REVISION, read_editor_version
 from .projects import ProjectEntry, discover_projects
 
@@ -29,9 +28,8 @@ def build_matrix(
         for platform in entry.builds:
             image_module = PLATFORM_CONFIGS[platform]["unityci_image_module"]
             matrix.append({
-                "project-name": name,
+                "project": name,
                 "platform": platform,
-                "unityci-image-module": image_module,
                 "editor-image": f"unityci/editor:{version}-{image_module}-{UNITYCI_IMAGE_REVISION}",
             })
 
@@ -40,8 +38,7 @@ def build_matrix(
             "No projects with builds declared — build-unity-matrix needs at least one unity-devkit.json "
             "with a non-empty 'platforms' map"
         )
-    print(f"matrix={json.dumps({'include': matrix})}")
-    print(f"license={license_cache_tag()}")
+    print(json.dumps(matrix))
 
 
 @compile_check_app.command()
@@ -56,12 +53,11 @@ def compile_check_matrix(
     for name, entry in projects.items():
         version = read_editor_version(entry.path)
         matrix.append({
-            "project-name": name,
+            "project": name,
             "editor-image": f"unityci/editor:{version}-{LICENSE_IMAGE_MODULE}-{UNITYCI_IMAGE_REVISION}",
         })
 
-    print(f"matrix={json.dumps({'include': matrix})}")
-    print(f"license={license_cache_tag()}")
+    print(json.dumps(matrix))
 
 
 def filtered_projects(project: str | None) -> dict[str, ProjectEntry]:

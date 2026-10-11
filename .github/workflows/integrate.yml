@@ -17,17 +17,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - &checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
       - &uv-restore
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           enable-cache: true
           save-cache: "false"
       - &setup-release-devkit
-        uses: ./.github/actions/setup-release-devkit
+        uses: $/.github/actions/setup-release-devkit
       - run: uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev lint-workflows
 
   preflight:
@@ -35,16 +35,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - *checkout
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           enable-cache: true
           save-cache: "true"
-      - run: uv run preflight-python
+      - run: uv run --locked preflight-python
 
   validate-release-plan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           # Perform a full clone, required for tags
@@ -55,20 +55,25 @@ jobs:
       - *setup-release-devkit
       - run: uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev validate-release-plan
 
-  get-unity-matrix:
+  plan-unity-compile-checks:
     needs: [preflight, validate-release-plan]
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
-      license: ${{ steps.matrix.outputs.license }}
+      license-cache-key: ${{ steps.license-cache-key.outputs.license-cache-key }}
     steps:
       - *checkout
       - *uv-restore
+      - *setup-release-devkit
+      - id: license-cache-key
+        run: echo "license-cache-key=$(uv run --locked unity-license-tag)" >> "$GITHUB_OUTPUT"
       - id: matrix
-        run: uv run compile-check-unity-matrix >> "$GITHUB_OUTPUT"
+        run: >-
+          uv run --locked compile-check-unity-matrix
+          | uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev matrix
 
   compile-check-unity:
-    needs: [get-unity-matrix]
+    needs: [plan-unity-compile-checks]
     permissions:
       contents: read
       packages: write
@@ -78,24 +83,27 @@ jobs:
     container: ${{ matrix.editor-image }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.get-unity-matrix.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.plan-unity-compile-checks.outputs.matrix) }}
     steps:
       - name: Wipe workspace
         run: find "$GITHUB_WORKSPACE" -mindepth 1 -delete; rm -rf ~/.cache/Unity
       - *checkout
       - *uv-restore
       - run: >-
-          uv run compile-check-unity
-          --project ${{ matrix.project-name }}
+          uv run --locked compile-check-unity
+          --project "$PROJECT"
+          --license-cache-key "$LICENSE_CACHE_KEY"
+          --registry "$REGISTRY"
           --execute-method Outernet.EnvironmentFixtureSelfTest.Run
-          --registry ghcr.io/${{ github.repository }}
-          --license ${{ needs.get-unity-matrix.outputs.license }}
         env:
-          CI_REGISTRY_TOKEN: ${{ github.token }}
-          CI_REGISTRY_USERNAME: ${{ github.actor }}
+          PROJECT: ${{ matrix.project }}
+          LICENSE_CACHE_KEY: ${{ needs.plan-unity-compile-checks.outputs.license-cache-key }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+          REGISTRY: ghcr.io/${{ github.repository }}
+          REGISTRY_TOKEN: ${{ github.token }}
+          REGISTRY_USERNAME: ${{ github.actor }}
 
   update-pr-draft-release:
     if: github.event.pull_request
@@ -105,7 +113,7 @@ jobs:
       packages: read
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           # Perform a full clone, required for tags
