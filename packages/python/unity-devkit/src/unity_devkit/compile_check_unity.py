@@ -23,14 +23,6 @@ def compile_check_unity(
         typer.Option("--license-cache-key", help="ORAS tag the license cache restores under; empty uses today's tag"),
     ] = "",
     registry: Annotated[str, typer.Option(help="OCI registry root; the verb derives the cache namespace")] = "",
-    execute_method: Annotated[
-        str | None,
-        typer.Option(help="Static method to run after load (Class.Method) — one editor session per invocation"),
-    ] = None,
-    build_target: Annotated[
-        str | None,
-        typer.Option(help="Startup build target (e.g. Android) for sessions that must open on a non-default platform"),
-    ] = None,
 ) -> None:
     if not registry:
         raise SystemExit("compile-check needs --registry (the OCI registry root)")
@@ -41,13 +33,8 @@ def compile_check_unity(
     restore_or_activate_license(cache_namespace, license_cache_key or None)
     restore_upm_cache(project_path, cache_namespace)
 
-    extra_flags = ""
-    if build_target:
-        extra_flags += f" -buildTarget {build_target}"
-    if execute_method:
-        extra_flags += f" -executeMethod {execute_method}"
     print(f"Compile-checking {project}...")
     prepare_unity_project(project_path)
-    run_unity_batchmode(project_path, extra_flags, extra_failure_signatures=COMPILE_ERROR_SIGNATURES)
+    run_unity_batchmode(project_path, extra_failure_signatures=COMPILE_ERROR_SIGNATURES)
     save_upm_cache(project_path, cache_namespace)
     print("  Compiles clean")
