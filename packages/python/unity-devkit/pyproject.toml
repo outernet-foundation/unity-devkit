@@ -28,4 +28,3 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/unity_devkit"]
-include = ["src/unity_devkit/py.typed"]
