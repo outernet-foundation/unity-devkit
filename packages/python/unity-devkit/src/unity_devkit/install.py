@@ -8,8 +8,8 @@ from typing import Annotated
 import typer
 from bashrun.bash import bash, bash_handoff, bash_output
 
-from ci_devkit.builds import build_reference, build_repository, list_build_tags, pull_build
-from ci_devkit.setup_oras import install_oras
+from build_artifact_registry.builds import build_reference, build_repository, list_build_tags, pull_artifact
+from build_artifact_registry.setup_oras import install_oras
 
 from .identity import builds_registry, cache_key
 from .player_build import build_player
@@ -133,7 +133,7 @@ def main(
             print(f"Using cached build: {cache_path}")
         else:
             cache_path.mkdir(parents=True, exist_ok=True)
-            pull_build(
+            pull_artifact(
                 registry,
                 project_name,
                 target_name,

@@ -1,11 +1,11 @@
 packages:
   unity-devkit:
     path: packages/python/unity-devkit
-    major_minor: "0.2"
+    major_minor: "0.3"
     registry: pypi
     identity: unity-devkit
   playerbuild:
     path: packages/unity/PlayerBuild/Assets/Package
-    major_minor: "0.2"
+    major_minor: "0.3"
     registry: npm
     identity: org.outernet.playerbuild

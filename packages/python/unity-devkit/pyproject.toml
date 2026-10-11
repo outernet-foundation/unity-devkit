@@ -5,7 +5,7 @@ description = "Unity build, license, and CI tooling"
 requires-python = ">=3.13"
 dependencies = [
     "bashrun>=0.1.0",
-    "ci-devkit>=0.1.15",
+    "build-artifact-registry>=0.2.0.dev0",
     "typer>=0.17.4",
     "pydantic>=2.11.7",
     "pydantic-settings>=2.9.1",
@@ -15,7 +15,6 @@ dependencies = [
 activate-unity-license = "unity_devkit.license:activate_app"
 build-unity = "unity_devkit.build_unity:app"
 build-unity-matrix = "unity_devkit.matrix:build_app"
-ci-build-unity = "unity_devkit.ci_build_unity:app"
 compile-check-unity = "unity_devkit.compile_check_unity:app"
 compile-check-unity-matrix = "unity_devkit.matrix:compile_check_app"
 install = "unity_devkit.install:app"

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from ci_devkit.cache import restore, save
+from build_artifact_registry.cache import restore, save
 
 UPM_CACHE_NAME = "unity-upm"
 UPM_CACHE_DIRECTORY = Path.home() / ".cache" / "Unity" / "upm"

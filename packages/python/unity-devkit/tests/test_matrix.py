@@ -24,17 +24,14 @@ def test_matrix_emits_entries_from_catalog(
 
     matrix.build_matrix()
 
-    lines = capsys.readouterr().out.splitlines()
-    include = json.loads(lines[0][len("matrix=") :])["include"]
-    assert include == [
+    legs = json.loads(capsys.readouterr().out)
+    assert legs == [
         {
-            "project-name": "tool",
+            "project": "tool",
             "platform": "Linux",
-            "unityci-image-module": "linux-il2cpp",
             "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3",
         }
     ]
-    assert lines[1].startswith("license=v-")
 
 
 def test_matrix_fails_without_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -57,9 +54,8 @@ def test_matrix_project_filter_scopes_to_one_project(
 
     matrix.build_matrix(project="other")
 
-    lines = capsys.readouterr().out.splitlines()
-    include = json.loads(lines[0][len("matrix=") :])["include"]
-    assert [entry["project-name"] for entry in include] == ["other"]
+    legs = json.loads(capsys.readouterr().out)
+    assert [entry["project"] for entry in legs] == ["other"]
 
 
 def test_matrix_project_filter_fails_on_unknown_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -78,10 +74,8 @@ def test_check_matrix_includes_path_only_projects(
 
     matrix.compile_check_matrix()
 
-    lines = capsys.readouterr().out.splitlines()
-    include = json.loads(lines[0][len("matrix=") :])["include"]
-    assert include == [{"project-name": "tool", "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3"}]
-    assert lines[1].startswith("license=v-")
+    legs = json.loads(capsys.readouterr().out)
+    assert legs == [{"project": "tool", "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3"}]
 
 
 def test_check_matrix_project_filter_scopes_to_one_project(
@@ -96,6 +90,5 @@ def test_check_matrix_project_filter_scopes_to_one_project(
 
     matrix.compile_check_matrix(project="other")
 
-    lines = capsys.readouterr().out.splitlines()
-    include = json.loads(lines[0][len("matrix=") :])["include"]
-    assert include == [{"project-name": "other", "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3"}]
+    legs = json.loads(capsys.readouterr().out)
+    assert legs == [{"project": "other", "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3"}]

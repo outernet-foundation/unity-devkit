@@ -4,24 +4,21 @@ on:
   pull_request:
     branches: [dev]
     types: [labeled]
-  workflow_run:
-    workflows: [Integrate]
-    types: [completed]
 
 concurrency:
-  group: merge-gate-${{ github.event.pull_request.number || github.event.workflow_run.head_branch }}
+  group: merge-gate-${{ github.event.pull_request.number }}
 
 permissions:
   contents: read
 
 jobs:
   merge-gate:
-    if: github.event.label.name == 'ready-to-merge' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    if: github.event.label.name == 'ready-to-merge'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
           # Perform a full clone, required so merge-gate can validate that this PR is a semi-linear merge into dev
           fetch-depth: 0
           persist-credentials: false
@@ -35,6 +32,6 @@ jobs:
         with:
           app-id: ${{ vars.MERGE_BOT_APP_ID }}
           private-key: ${{ secrets.MERGE_BOT_APP_PRIVATE_KEY }}
-      - run: uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev merge-gate --head-sha ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+      - run: uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev merge-gate --head-sha ${{ github.event.pull_request.head.sha }}
         env:
           GITHUB_TOKEN: ${{ steps.mint.outputs.token }}
