@@ -13,115 +13,23 @@ permissions:
   contents: read
 
 jobs:
-  lint-workflows:
-    runs-on: ubuntu-latest
-    steps:
-      - &checkout
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          persist-credentials: false
-      - &uv-restore
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
-        with:
-          enable-cache: true
-          save-cache: "false"
-      - &setup-release-devkit
-        uses: $/.github/actions/setup-release-devkit
-      - run: uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev lint-workflows
-
   preflight:
-    needs: [lint-workflows]
-    runs-on: ubuntu-latest
-    steps:
-      - *checkout
-      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
-        with:
-          enable-cache: true
-          save-cache: "true"
-      - run: uv run --locked preflight-python
-
-  validate-release-plan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          # Perform a full clone, required for tags
-          fetch-depth: 0
-          fetch-tags: true
-          persist-credentials: false
-      - *uv-restore
-      - *setup-release-devkit
-      - run: uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev validate-release-plan
-
-  plan-unity-compile-checks:
-    needs: [preflight, validate-release-plan]
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
-      license-cache-key: ${{ steps.license-cache-key.outputs.license-cache-key }}
-    steps:
-      - *checkout
-      - *uv-restore
-      - *setup-release-devkit
-      - id: license-cache-key
-        run: echo "license-cache-key=$(uv run --locked unity-license-tag)" >> "$GITHUB_OUTPUT"
-      - id: matrix
-        run: >-
-          uv run --locked compile-check-unity-matrix
-          | uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev matrix
+    uses: outernet-foundation/github-actions-toolkit/.github/workflows/preflight.yml@66df38b08b8209b587de1c140b720d835ed8a3c3
 
   compile-check-unity:
-    needs: [plan-unity-compile-checks]
+    needs: [preflight]
     permissions:
       contents: read
       packages: write
-    runs-on:
-      - self-hosted
-      - unity
-    container: ${{ matrix.editor-image }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.plan-unity-compile-checks.outputs.matrix) }}
-    steps:
-      - name: Wipe workspace
-        run: find "$GITHUB_WORKSPACE" -mindepth 1 -delete; rm -rf ~/.cache/Unity
-      - *checkout
-      - *uv-restore
-      - run: >-
-          uv run --locked compile-check-unity
-          --project "$PROJECT"
-          --license-cache-key "$LICENSE_CACHE_KEY"
-          --registry "$REGISTRY"
-          --execute-method Outernet.EnvironmentFixtureSelfTest.Run
-        env:
-          PROJECT: ${{ matrix.project }}
-          LICENSE_CACHE_KEY: ${{ needs.plan-unity-compile-checks.outputs.license-cache-key }}
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
-          REGISTRY: ghcr.io/${{ github.repository }}
-          REGISTRY_TOKEN: ${{ github.token }}
-          REGISTRY_USERNAME: ${{ github.actor }}
+    uses: outernet-foundation/github-actions-toolkit/.github/workflows/compile-check-unity.yml@66df38b08b8209b587de1c140b720d835ed8a3c3
+    secrets:
+      unity-email: ${{ secrets.UNITY_EMAIL }}
+      unity-password: ${{ secrets.UNITY_PASSWORD }}
+      unity-serial: ${{ secrets.UNITY_SERIAL }}
 
   update-pr-draft-release:
-    if: github.event.pull_request
-    needs: [validate-release-plan]
+    needs: [compile-check-unity]
     permissions:
       contents: write
       packages: read
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          # Perform a full clone, required for tags
-          fetch-depth: 0
-          fetch-tags: true
-          persist-credentials: false
-      - *uv-restore
-      - *setup-release-devkit
-      - run: uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev release --channel pr
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+    uses: outernet-foundation/github-actions-toolkit/.github/workflows/update-pr-draft-release.yml@66df38b08b8209b587de1c140b720d835ed8a3c3
