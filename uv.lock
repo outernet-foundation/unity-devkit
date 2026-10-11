@@ -49,16 +49,16 @@ wheels = [
 
 [[package]]
 name = "build-artifact-registry"
-version = "0.2.0.dev38099046697"
+version = "0.2.0.dev38101394871"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bashrun" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d6/d1/ee4046e304d44cc4312a080bc77da4d4cf8c20bd00bebc2027bcbd492f91/build_artifact_registry-0.2.0.dev38099046697.tar.gz", hash = "sha256:c10dff6d444dfa8dfc50eb3f86864f02997560f6680d721b1a3d6b4eea35b9e0", size = 35868, upload-time = "2026-10-11T00:40:18.466Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d2/35/7bd270fb56bbbcee40ee2f3834b07e912fb69ff62f84560f7a2e08a3759a/build_artifact_registry-0.2.0.dev38101394871.tar.gz", hash = "sha256:d19575c8315f808cbd5d6e6011dbe2eb03a2b1bc25865482ddbf14acccb1dace", size = 36173, upload-time = "2026-10-11T01:21:07.61Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/74/ce/033a8baa1985c6a76e138f513d924335e05468ed8b513405fb4532bd387d/build_artifact_registry-0.2.0.dev38099046697-py3-none-any.whl", hash = "sha256:27112ca64a6ba87b82f334b04506c5b83f59732a17a740dc9c6a949ffe8730a6", size = 10545, upload-time = "2026-10-11T00:40:17.403Z" },
+    { url = "https://files.pythonhosted.org/packages/41/e4/4cb0cc61d42f3822aec3f66b27490e3dfa44ecc26109093236c868528121/build_artifact_registry-0.2.0.dev38101394871-py3-none-any.whl", hash = "sha256:b124930a6b565ce0861d3bc6f680cbca92bf81334caef077b5b00666cee9257f", size = 10745, upload-time = "2026-10-11T01:21:06.485Z" },
 ]
 
 [[package]]
