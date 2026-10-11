@@ -7,5 +7,5 @@ runs:
       env:
         RELEASE_DEVKIT_COMMIT: d9826576a567b0081dd0f705f4a7eb8a9d2a0646
       run: |
-        git clone https://github.com/outernet-foundation/release-devkit.git "$RUNNER_TEMP/release-devkit"
+        git clone https://github.com/outernet-foundation/github-actions-toolkit.git "$RUNNER_TEMP/release-devkit"
         git -C "$RUNNER_TEMP/release-devkit" checkout "$RELEASE_DEVKIT_COMMIT"

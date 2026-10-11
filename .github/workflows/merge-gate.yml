@@ -16,22 +16,24 @@ jobs:
     if: github.event.label.name == 'ready-to-merge'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           # Perform a full clone, required so merge-gate can validate that this PR is a semi-linear merge into dev
           fetch-depth: 0
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           enable-cache: true
           save-cache: "false"
-      - uses: ./.github/actions/setup-release-devkit
-      - uses: actions/create-github-app-token@v3
+      - uses: $/.github/actions/setup-release-devkit
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
         id: mint
         with:
           app-id: ${{ vars.MERGE_BOT_APP_ID }}
           private-key: ${{ secrets.MERGE_BOT_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: read
       - run: uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev merge-gate --head-sha ${{ github.event.pull_request.head.sha }}
         env:
           GITHUB_TOKEN: ${{ steps.mint.outputs.token }}

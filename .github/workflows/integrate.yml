@@ -17,17 +17,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - &checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
       - &uv-restore
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           enable-cache: true
           save-cache: "false"
       - &setup-release-devkit
-        uses: ./.github/actions/setup-release-devkit
+        uses: $/.github/actions/setup-release-devkit
       - run: uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev lint-workflows
 
   preflight:
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - *checkout
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           enable-cache: true
           save-cache: "true"
@@ -44,7 +44,7 @@ jobs:
   validate-release-plan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           # Perform a full clone, required for tags
@@ -113,7 +113,7 @@ jobs:
       packages: read
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           # Perform a full clone, required for tags

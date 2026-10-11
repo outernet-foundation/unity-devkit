@@ -19,19 +19,19 @@ jobs:
       id-token: write
       packages: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           # Perform a full clone, required for tags
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
       - &uv-restore
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           enable-cache: true
           save-cache: "false"
       - &setup-release-devkit
-        uses: ./.github/actions/setup-release-devkit
+        uses: $/.github/actions/setup-release-devkit
       - run: uv run --project "$RUNNER_TEMP/release-devkit" --locked --no-dev release --channel dev
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -43,7 +43,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           # Perform a full clone, required for tags
           fetch-depth: 0
