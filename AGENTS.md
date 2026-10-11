@@ -10,7 +10,7 @@ The PyPI identity: `unity-devkit`'s version tags start at `0.1.0`; the terminal 
 
 ## Release flow
 
-github-actions-toolkit's `AGENTS.md` owns the consumer workflow contract. Repo-specific facts: CI self-consumes — `integrate.yml` calls the binding's `compile-check-unity.yml` reusable, whose legs run the verbs from this repo's synced workspace, exercising unreleased code. Both packages publish from the one `release` job: `release-devkit.yaml` declares `unity-devkit` (PyPI, path `packages/python/unity-devkit`, `unity-devkit-v*` tags) and `playerbuild` (npm `org.outernet.playerbuild`, path `packages/unity/PlayerBuild/Assets/Package`, `playerbuild-v*` tags), each gated by its own path-diff. The PyPI and npm trusted publishers are both bound to `release.yml` — npm allows one trusted publisher per package, bound to a single workflow filename: **never rename that file**.
+github-actions-toolkit's `AGENTS.md` owns the consumer workflow contract. Repo-specific facts: CI self-consumes — `integrate.yml` calls the binding's `compile-check-unity.yml` reusable, whose legs run the verbs from this repo's synced workspace, exercising unreleased code. Both packages publish from the one `release` job: `publish.yml` declares `unity-devkit` (PyPI, path `packages/python/unity-devkit`, `unity-devkit-v*` tags) and `playerbuild` (npm `org.outernet.playerbuild`, path `packages/unity/PlayerBuild/Assets/Package`, `playerbuild-v*` tags), each gated by its own path-diff. The PyPI and npm trusted publishers are both bound to `release.yml` — npm allows one trusted publisher per package, bound to a single workflow filename: **never rename that file**.
 
 ## Consumers call the binding's reusables
 
