@@ -48,6 +48,20 @@ wheels = [
 ]
 
 [[package]]
+name = "build-artifact-registry"
+version = "0.2.0.dev38099046697"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "bashrun" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d6/d1/ee4046e304d44cc4312a080bc77da4d4cf8c20bd00bebc2027bcbd492f91/build_artifact_registry-0.2.0.dev38099046697.tar.gz", hash = "sha256:c10dff6d444dfa8dfc50eb3f86864f02997560f6680d721b1a3d6b4eea35b9e0", size = 35868, upload-time = "2026-10-11T00:40:18.466Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/ce/033a8baa1985c6a76e138f513d924335e05468ed8b513405fb4532bd387d/build_artifact_registry-0.2.0.dev38099046697-py3-none-any.whl", hash = "sha256:27112ca64a6ba87b82f334b04506c5b83f59732a17a740dc9c6a949ffe8730a6", size = 10545, upload-time = "2026-10-11T00:40:17.403Z" },
+]
+
+[[package]]
 name = "ci-devkit"
 version = "0.1.15"
 source = { registry = "https://pypi.org/simple" }
@@ -393,7 +407,7 @@ version = "0.0.0.dev0"
 source = { editable = "packages/python/unity-devkit" }
 dependencies = [
     { name = "bashrun" },
-    { name = "ci-devkit" },
+    { name = "build-artifact-registry" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "typer" },
@@ -402,7 +416,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "bashrun", specifier = ">=0.1.0" },
-    { name = "ci-devkit", specifier = ">=0.1.15" },
+    { name = "build-artifact-registry", specifier = ">=0.2.0.dev0" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "pydantic-settings", specifier = ">=2.9.1" },
     { name = "typer", specifier = ">=0.17.4" },
