@@ -66,7 +66,13 @@ def build_unity(
         install_oras()
         restore_or_activate_license(library_cache_registry, license_cache_key or None)
         restore_upm_cache(project_path, library_cache_registry)
-        restore(library_cache_registry, "unity-library", derived_cache_key, Path("."))
+        restore(
+            library_cache_registry,
+            "unity-library",
+            derived_cache_key,
+            Path("."),
+            fallback_tags=[cache_key(project, platform, None)] if parsed_pr_number is not None else None,
+        )
 
     artifacts = build_player(
         project,
