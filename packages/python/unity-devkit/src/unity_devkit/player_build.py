@@ -43,6 +43,11 @@ DOTNET_SDK_VERSION = "8.0.421"
 # are discovered.
 QUIET_FAILURE_SIGNATURES = ("An error occurred while resolving packages:",)
 
+COMPILE_ERROR_PATTERN = re.compile(
+    r"^(?P<file>.+?)\((?P<line>\d+),(?P<column>\d+)\): error (?P<code>CS\d+): (?P<message>.+)$"
+)
+ANNOTATION_LIMIT = 10
+
 
 def run_unity_batchmode(
     project_path: Path,
@@ -100,12 +105,50 @@ def run_unity_batchmode(
         break
 
     if failure_block is not None:
+        report_compile_errors(lines)
         raise SystemExit(f"Unity reported a silent failure (exit code {returncode}):\n{failure_block}")
     if returncode != 0 and strict_exit:
+        report_compile_errors(lines)
         raise SystemExit(f"Unity exited {returncode}; full editor log at {log_path}")
     if returncode != 0:
         print(f"  WARNING: Unity exited {returncode}; no package-manager failure found — full editor log at {log_path}")
     return log_path
+
+
+def report_compile_errors(lines: list[str]) -> None:
+    counts: dict[tuple[str, int, str, str], int] = {}
+    for line in lines:
+        if line.startswith("[Script Updater]"):
+            continue
+        match = COMPILE_ERROR_PATTERN.match(line)
+        if match is None:
+            continue
+        key = (match["file"], int(match["line"]), match["code"], match["message"].strip())
+        counts[key] = counts.get(key, 0) + 1
+    if not counts:
+        return
+
+    print(f"Unity compile errors ({len(counts)} distinct):", file=sys.stderr)
+    for (file, line_number, code, message), count in counts.items():
+        print(f"  {code} x{count} {file}:{line_number} {message}", file=sys.stderr)
+
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    for (file, line_number, code, message), count in list(counts.items())[:ANNOTATION_LIMIT]:
+        title = escape_annotation_property(f"{code} x{count}")
+        body = escape_annotation_data(f"{code}: {message}")
+        print(f"::error file={escape_annotation_property(file)},line={line_number},title={title}::{body}")
+    beyond_limit = len(counts) - ANNOTATION_LIMIT
+    if beyond_limit > 0:
+        print(f"::error::{escape_annotation_data(f'...and {beyond_limit} more distinct compile errors')}")
+
+
+def escape_annotation_data(value: str) -> str:
+    return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def escape_annotation_property(value: str) -> str:
+    return escape_annotation_data(value).replace(":", "%3A").replace(",", "%2C")
 
 
 def read_editor_version(project_path: Path) -> str:
