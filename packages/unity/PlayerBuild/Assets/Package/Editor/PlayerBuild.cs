@@ -123,6 +123,7 @@ namespace Outernet
         )
         {
             ApplyPlatformFacts(spec, development);
+            ApplySigning();
             ApplyEnvironment(config.EnvironmentConfig, environment, environmentFields);
             ApplyXr(spec);
             PlatformOverrides overrides = PlatformFor(config, spec.Name);
@@ -152,6 +153,40 @@ namespace Outernet
             Debug.Log(
                 $"[playerbuild] platform facts applied: {spec.Name} ({(development ? "development" : "release")})"
             );
+        }
+
+        public static void ApplySigning()
+        {
+            string path = Environment.GetEnvironmentVariable("KEYSTORE_PATH") ?? "";
+            string keystorePassword = Environment.GetEnvironmentVariable("KEYSTORE_PASSWORD") ?? "";
+            string alias = Environment.GetEnvironmentVariable("KEYSTORE_ALIAS") ?? "";
+            string aliasPassword = Environment.GetEnvironmentVariable("KEYSTORE_ALIAS_PASSWORD") ?? "";
+
+            string[] values = { path, keystorePassword, alias, aliasPassword };
+            if (values.Any(value => value.Length == 0) && values.Any(value => value.Length > 0))
+            {
+                throw new BuildFailedException(
+                    "KEYSTORE_* signing env is partially set — provide KEYSTORE_PATH, KEYSTORE_PASSWORD, KEYSTORE_ALIAS, "
+                        + "and KEYSTORE_ALIAS_PASSWORD together, or none to sign with the machine's debug keystore"
+                );
+            }
+
+            if (path.Length == 0)
+            {
+                Debug.Log("[playerbuild] no keystore env — signing falls back to the machine's debug keystore");
+                return;
+            }
+
+            if (!File.Exists(path))
+            {
+                throw new BuildFailedException($"KEYSTORE_PATH does not exist: '{path}'");
+            }
+
+            PlayerSettings.Android.keystoreName = path;
+            PlayerSettings.Android.keystorePass = keystorePassword;
+            PlayerSettings.Android.keyaliasName = alias;
+            PlayerSettings.Android.keyaliasPass = aliasPassword;
+            Debug.Log($"[playerbuild] signing keystore applied: {path} (alias {alias})");
         }
 
         public static void ApplyEnvironment(

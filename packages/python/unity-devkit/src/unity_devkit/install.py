@@ -101,7 +101,7 @@ def main(
             print(f"Would build {project_name} [{target_name}] locally")
             if target_name in ADB_TARGETS:
                 serial_part = f" -s {serial}" if serial else ""
-                print(f"Would install: adb{serial_part} install <apk>")
+                print(f"Would install: adb{serial_part} install -r -d <apk>")
             elif target_name == "Linux":
                 print("Would launch the produced executable")
             return
@@ -121,7 +121,7 @@ def main(
             print(f"Cache: {cache_path}")
             if target_name in ADB_TARGETS:
                 serial_part = f" -s {serial}" if serial else ""
-                print(f"Would install: adb{serial_part} install <apk>")
+                print(f"Would install: adb{serial_part} install -r -d <apk>")
             elif target_name == "Linux":
                 print("Would extract build.tar and launch the executable")
             return
@@ -172,7 +172,7 @@ def main(
 
         print(f"Installing: {apks[0].name}")
         adb_prefix = f"adb -s {serial}" if serial else "adb"
-        bash(f"{adb_prefix} install {apks[0]}")
+        bash(f"{adb_prefix} install -r -d {apks[0]}")
         print("Done.")
     else:
         if not executables:
