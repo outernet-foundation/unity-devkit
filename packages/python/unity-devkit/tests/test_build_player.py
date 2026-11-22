@@ -8,9 +8,13 @@ from unity_devkit import player_build
 PROJECT_SETTINGS = """PlayerSettings:
   m_ObjectHideFlags: 0
   productGUID: 26c3d6c0f3f2e6d4d9a5e3f4a1b2c3d4
+  productName: Capture Tool
   AndroidBundleVersionCode: 1
   AndroidTargetArchitectures: 3
   bundleVersion: 0.1.0
+  applicationIdentifier:
+    Android: com.outernet.captureapp
+    Standalone: com.Unity-Technologies.com.unity.template.urp-blank
 """
 
 RECEIVED_SESSIONS: list[tuple[str, dict[str, str]]] = []
@@ -78,6 +82,99 @@ def test_build_player_refuses_to_stamp_a_missing_field(tmp_path: Path, monkeypat
 
     with pytest.raises(SystemExit, match="AndroidBundleVersionCode"):
         player_build.build_player("tool", "AndroidMobile", version="0.2.7-dev", commit_count=42)
+
+
+def test_build_player_stamps_identity_suffixes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile"])
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
+
+    player_build.build_player("tool", "AndroidMobile", application_id_suffix=".pr24", display_name_suffix=" (pr 24)")
+
+    rewritten = (project / "ProjectSettings" / "ProjectSettings.asset").read_text()
+    assert "  productName: Capture Tool (pr 24)\n" in rewritten
+    assert "    Android: com.outernet.captureapp.pr24\n" in rewritten
+    assert "    Standalone: com.Unity-Technologies.com.unity.template.urp-blank\n" in rewritten
+
+
+def test_build_player_without_suffixes_leaves_identity_bare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile"])
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
+
+    player_build.build_player("tool", "AndroidMobile")
+
+    rewritten = (project / "ProjectSettings" / "ProjectSettings.asset").read_text()
+    assert "  productName: Capture Tool\n" in rewritten
+    assert "    Android: com.outernet.captureapp\n" in rewritten
+
+
+def test_build_player_stamps_either_suffix_alone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile"])
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
+
+    player_build.build_player("tool", "AndroidMobile", application_id_suffix=".dev")
+
+    rewritten = (project / "ProjectSettings" / "ProjectSettings.asset").read_text()
+    assert "  productName: Capture Tool\n" in rewritten
+    assert "    Android: com.outernet.captureapp.dev\n" in rewritten
+
+
+def test_build_player_stamps_version_and_identity_together(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile"])
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
+
+    player_build.build_player(
+        "tool",
+        "AndroidMobile",
+        version="0.2.7",
+        commit_count=9,
+        application_id_suffix=".dev",
+        display_name_suffix=" (dev)",
+    )
+
+    rewritten = (project / "ProjectSettings" / "ProjectSettings.asset").read_text()
+    assert "  bundleVersion: 0.2.7+9\n" in rewritten
+    assert "  productName: Capture Tool (dev)\n" in rewritten
+    assert "    Android: com.outernet.captureapp.dev\n" in rewritten
+
+
+def test_build_player_refuses_to_stamp_an_empty_application_identifier_map(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    empty_map_settings = PROJECT_SETTINGS.replace(
+        "  applicationIdentifier:\n    Android: com.outernet.captureapp\n"
+        "    Standalone: com.Unity-Technologies.com.unity.template.urp-blank\n",
+        "  applicationIdentifier: {}\n",
+    )
+    write_repository(tmp_path, empty_map_settings, builds=["AndroidMobile"])
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
+
+    with pytest.raises(SystemExit, match="applicationIdentifier"):
+        player_build.build_player("tool", "AndroidMobile", application_id_suffix=".pr24")
+
+
+def test_build_player_refuses_to_stamp_a_missing_product_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    write_repository(tmp_path, PROJECT_SETTINGS.replace("  productName: Capture Tool\n", ""), builds=["AndroidMobile"])
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
+
+    with pytest.raises(SystemExit, match="productName"):
+        player_build.build_player("tool", "AndroidMobile", display_name_suffix=" (dev)")
+
+
+def test_build_player_refuses_to_stamp_a_duplicated_product_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_repository(tmp_path, PROJECT_SETTINGS + "  productName: Second Copy\n", builds=["AndroidMobile"])
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
+
+    with pytest.raises(SystemExit, match="found 2"):
+        player_build.build_player("tool", "AndroidMobile", display_name_suffix=" (dev)")
 
 
 def test_build_player_fails_when_no_artifact_was_produced(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

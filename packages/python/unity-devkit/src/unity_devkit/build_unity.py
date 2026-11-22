@@ -28,6 +28,16 @@ def build_unity(
             help="Bare version base; with --commit-count renders bundleVersion={version}+{commit-count}; empty builds unversioned"
         ),
     ] = "",
+    application_id_suffix: Annotated[
+        str,
+        typer.Option(
+            help="Appended to the applicationIdentifier Android entry; empty is bare identity (binding-derived per channel)"
+        ),
+    ] = "",
+    display_name_suffix: Annotated[
+        str,
+        typer.Option(help="Appended to productName; empty is bare identity (binding-derived per channel)"),
+    ] = "",
     pr_number: Annotated[
         str, typer.Option(help="Pull-request number; empty on non-PR runs selects the dev cache scope")
     ] = "",
@@ -79,6 +89,8 @@ def build_unity(
         platform,
         version=version,
         commit_count=commit_count,
+        application_id_suffix=application_id_suffix,
+        display_name_suffix=display_name_suffix,
         development=development,
         environment_preset=environment_preset,
         environment_fields=fields,

@@ -241,6 +241,8 @@ def build_player(
     *,
     version: str = "",
     commit_count: int = 0,
+    application_id_suffix: str = "",
+    display_name_suffix: str = "",
     development: bool = False,
     environment_preset: str = "",
     environment_fields: dict[str, str] | None = None,
@@ -268,6 +270,23 @@ def build_player(
             rewritten = replace_serialized_field(rewritten, field_name, value)
         settings_path.write_text(rewritten, encoding="utf-8")
         print(f"Stamped bundleVersion {bundle_version} (AndroidBundleVersionCode={commit_count}) into ProjectSettings")
+
+    if application_id_suffix or display_name_suffix:
+        settings_path = project_path / "ProjectSettings" / "ProjectSettings.asset"
+        rewritten = settings_path.read_text(encoding="utf-8")
+        stamped: list[str] = []
+        if display_name_suffix:
+            product_name = serialized_field_value(rewritten, "productName")
+            rewritten = replace_serialized_field(rewritten, "productName", f"{product_name}{display_name_suffix}")
+            stamped.append(f"productName {product_name}{display_name_suffix}")
+        if application_id_suffix:
+            bundle_id = find_serialized_map_entry(rewritten, "applicationIdentifier", "Android")["value"]
+            rewritten = replace_serialized_map_entry(
+                rewritten, "applicationIdentifier", "Android", f"{bundle_id}{application_id_suffix}"
+            )
+            stamped.append(f"applicationIdentifier(Android) {bundle_id}{application_id_suffix}")
+        settings_path.write_text(rewritten, encoding="utf-8")
+        print(f"Stamped identity into ProjectSettings: {', '.join(stamped)}")
 
     build_directory = project_path / "Build"
     before = snapshot_artifacts(build_directory)
@@ -304,6 +323,36 @@ def replace_serialized_field(text: str, field_name: str, value: str) -> str:
             "the serialized shape changed; refusing to stamp"
         )
     return rewritten
+
+
+def serialized_field_value(text: str, field_name: str) -> str:
+    pattern = re.compile(rf"^[ \t]*{field_name}:[ \t]*(?P<value>.*?)[ \t]*$", re.MULTILINE)
+    matches = list(pattern.finditer(text))
+    if len(matches) != 1:
+        raise SystemExit(
+            f"Expected exactly one '{field_name}:' field in ProjectSettings.asset, found {len(matches)} — "
+            "the serialized shape changed; refusing to stamp"
+        )
+    return matches[0]["value"]
+
+
+def find_serialized_map_entry(text: str, map_name: str, key: str) -> re.Match[str]:
+    pattern = re.compile(
+        rf"^(?P<indent>[ \t]*){map_name}:\n(?P=indent)  {key}:[ \t]*(?P<value>.*?)[ \t]*$",
+        re.MULTILINE,
+    )
+    matches = list(pattern.finditer(text))
+    if len(matches) != 1:
+        raise SystemExit(
+            f"Expected exactly one '{key}:' entry under '{map_name}:' in ProjectSettings.asset, found {len(matches)} — "
+            "the serialized shape changed; refusing to stamp"
+        )
+    return matches[0]
+
+
+def replace_serialized_map_entry(text: str, map_name: str, key: str, value: str) -> str:
+    match = find_serialized_map_entry(text, map_name, key)
+    return f"{text[: match.start('value')]}{value}{text[match.end('value') :]}"
 
 
 def snapshot_artifacts(build_directory: Path) -> dict[Path, int]:
