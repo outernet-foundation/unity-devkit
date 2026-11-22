@@ -1,6 +1,12 @@
 import pytest
 
-from unity_devkit.identity import builds_registry, builds_tag, cache_key, cache_registry
+from unity_devkit.identity import (
+    builds_registry,
+    builds_tag,
+    cache_key,
+    cache_registry,
+    channel_suffix,
+)
 
 
 def test_cache_key_scopes_to_pr_when_present() -> None:
@@ -24,6 +30,30 @@ def test_builds_tag_scopes_the_sha_by_channel() -> None:
 def test_builds_tag_refuses_an_unknown_channel() -> None:
     with pytest.raises(SystemExit, match="unknown channel 'main'"):
         builds_tag("main", "abc123")
+
+
+def test_channel_suffix_scales_the_pair_by_the_pr_number() -> None:
+    assert channel_suffix("pr", 24) == (".pr24", " (pr 24)")
+    assert channel_suffix("pr", 7) == (".pr7", " (pr 7)")
+
+
+def test_channel_suffix_carries_the_dev_pair() -> None:
+    assert channel_suffix("dev", None) == (".dev", " (dev)")
+
+
+def test_channel_suffix_is_bare_for_stable_and_empty() -> None:
+    assert channel_suffix("stable", None) == ("", "")
+    assert channel_suffix("", None) == ("", "")
+
+
+def test_channel_suffix_refuses_an_unknown_channel() -> None:
+    with pytest.raises(SystemExit, match="unknown channel 'main'"):
+        channel_suffix("main", None)
+
+
+def test_channel_suffix_requires_a_pr_number_on_the_pr_channel() -> None:
+    with pytest.raises(SystemExit, match="requires a pull-request number"):
+        channel_suffix("pr", None)
 
 
 def test_registry_namespaces_derive_from_the_repo_root() -> None:

@@ -10,7 +10,7 @@ from bashrun.bash import bash, bash_output
 from build_artifact_registry.builds import build_repository, push_build
 from build_artifact_registry.cache import restore, save
 from build_artifact_registry.setup_oras import install_oras
-from .identity import builds_registry, builds_tag, cache_key, cache_registry
+from .identity import builds_registry, builds_tag, cache_key, cache_registry, channel_suffix
 from .license_restore import restore_or_activate_license
 from .player_build import build_player, parse_environment_fields, resolve_unity_project
 from .upm_cache import restore_upm_cache, save_upm_cache
@@ -30,17 +30,10 @@ def build_unity(
     ] = "",
     channel: Annotated[
         str,
-        typer.Option(help="Delivery channel scoping the builds-shelf push tag (pr/dev/stable); default pr"),
-    ] = "pr",
-    application_id_suffix: Annotated[
-        str,
         typer.Option(
-            help="Appended to the applicationIdentifier Android entry; empty is bare identity (binding-derived per channel)"
+            help="Delivery channel scoping the builds-shelf push tag and the app identity suffixes "
+            "(pr/dev/stable); empty is the local bare-identity build"
         ),
-    ] = "",
-    display_name_suffix: Annotated[
-        str,
-        typer.Option(help="Appended to productName; empty is bare identity (binding-derived per channel)"),
     ] = "",
     pr_number: Annotated[
         str, typer.Option(help="Pull-request number; empty on non-PR runs selects the dev cache scope")
@@ -71,6 +64,7 @@ def build_unity(
 ) -> None:
     fields = parse_environment_fields(environment_field or [])
     parsed_pr_number = int(pr_number) if pr_number else None
+    suffix = channel_suffix(channel, parsed_pr_number)
     derived_cache_key = cache_key(project, platform, parsed_pr_number)
     library_cache_registry = cache_registry(registry)
     builds_namespace = builds_registry(registry)
@@ -93,8 +87,8 @@ def build_unity(
         platform,
         version=version,
         commit_count=commit_count,
-        application_id_suffix=application_id_suffix,
-        display_name_suffix=display_name_suffix,
+        application_id_suffix=suffix.id_suffix,
+        display_name_suffix=suffix.display_suffix,
         development=development,
         environment_preset=environment_preset,
         environment_fields=fields,
