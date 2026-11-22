@@ -11,7 +11,7 @@ from bashrun.bash import bash, bash_handoff, bash_output
 from build_artifact_registry.builds import build_reference, build_repository, list_build_tags, pull_artifact
 from build_artifact_registry.setup_oras import install_oras
 
-from .identity import builds_registry, cache_key
+from .identity import builds_registry, builds_tag, cache_key
 from .player_build import build_player
 from .projects import discover_projects
 
@@ -35,8 +35,12 @@ def main(
     ] = "",
     sha: Annotated[
         str | None,
-        typer.Option("--sha", help="CI head SHA whose sha-{sha} builds-shelf tag to pull"),
+        typer.Option("--sha", help="CI head SHA whose channel-scoped builds-shelf tag to pull"),
     ] = None,
+    channel: Annotated[
+        str,
+        typer.Option("--channel", help="Channel composing the --sha builds-shelf tag (pr/dev/stable); default dev"),
+    ] = "dev",
     serial: Annotated[str | None, typer.Option("--serial", "-s", help="adb device serial")] = None,
     build_locally: Annotated[
         bool,
@@ -110,7 +114,7 @@ def main(
         executables = [path for path in produced if path.suffix in {".exe", ".x86_64"}]
     else:
         parsed_pr_number = int(pr_number) if pr_number else None
-        tag = f"sha-{sha}" if sha else cache_key(project_name, target_name, parsed_pr_number)
+        tag = builds_tag(channel, sha) if sha else cache_key(project_name, target_name, parsed_pr_number)
 
         registry = _builds_registry()
         reference = build_reference(registry, project_name, target_name, tag)

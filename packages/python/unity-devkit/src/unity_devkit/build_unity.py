@@ -10,7 +10,7 @@ from bashrun.bash import bash, bash_output
 from build_artifact_registry.builds import build_repository, push_build
 from build_artifact_registry.cache import restore, save
 from build_artifact_registry.setup_oras import install_oras
-from .identity import builds_registry, cache_key, cache_registry
+from .identity import builds_registry, builds_tag, cache_key, cache_registry
 from .license_restore import restore_or_activate_license
 from .player_build import build_player, parse_environment_fields, resolve_unity_project
 from .upm_cache import restore_upm_cache, save_upm_cache
@@ -28,6 +28,10 @@ def build_unity(
             help="Bare version base; with --commit-count renders bundleVersion={version}+{commit-count}; empty builds unversioned"
         ),
     ] = "",
+    channel: Annotated[
+        str,
+        typer.Option(help="Delivery channel scoping the builds-shelf push tag (pr/dev/stable); default pr"),
+    ] = "pr",
     application_id_suffix: Annotated[
         str,
         typer.Option(
@@ -138,7 +142,7 @@ def build_unity(
         return
 
     head_sha = bash_output("git rev-parse HEAD").strip()
-    tags = (derived_cache_key, f"sha-{head_sha}")
+    tags = (derived_cache_key, builds_tag(channel, head_sha))
     if platform == "Linux":
         staging = Path("/tmp/unity-builds-push")
         staging.mkdir(parents=True, exist_ok=True)
