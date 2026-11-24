@@ -2,7 +2,7 @@
   "name": "org.outernet.playerbuild",
   "version": "0.0.0+local",
   "displayName": "Outernet Player Build",
-  "description": "Shared build profiles, config applier, and player-build runner for Outernet Unity projects",
+  "description": "Reusable player-build machinery for Outernet Unity projects: platform fact application, signing, XR wiring, verification, and build reports",
   "unity": "6000.0",
   "license": "Apache-2.0",
   "repository": {

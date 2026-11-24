@@ -3,7 +3,6 @@
   "rootNamespace": "Outernet",
   "references": [
     "Newtonsoft.Json",
-    "UnityEditor.BuildProfileModule",
     "Unity.XR.Management",
     "Unity.XR.Management.Editor",
     "Unity.XR.OpenXR",

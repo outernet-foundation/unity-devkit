@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -24,58 +23,26 @@ namespace Outernet
         private const string WorkspaceDirectory = "Assets/_LocalWorkspace";
         private const string PlatformRecordPath = WorkspaceDirectory + "/platform.json";
 
-        public static void Entry()
+        public static void Run()
         {
-            try
-            {
-                RunBuild();
-            }
-            catch (Exception error)
-            {
-                Debug.LogException(error);
-                EditorApplication.Exit(1);
-            }
-        }
-
-        public static void DumpEnvironment()
-        {
-            string classPath =
-                Environment.GetEnvironmentVariable("ENVIRONMENT_CONFIG_CLASS") ?? LoadConfig().EnvironmentConfig;
-            if (classPath.Length == 0)
-            {
-                throw new BuildFailedException(
-                    "No environment class — set unity-devkit.json 'environment_config' or the ENVIRONMENT_CONFIG_CLASS env var"
-                );
-            }
-
-            new EnvironmentConfig(classPath).Dump();
-        }
-
-        public static void RunBuild()
-        {
-            string platform = Environment.GetEnvironmentVariable("PLATFORM");
-            string developmentValue = Environment.GetEnvironmentVariable("DEVELOPMENT");
-            if (developmentValue != null && developmentValue != "true" && developmentValue != "false")
-            {
-                throw new BuildFailedException($"DEVELOPMENT must be 'true' or 'false' — got '{developmentValue}'");
-            }
-
-            bool development = developmentValue == "true";
-            string environmentName = Environment.GetEnvironmentVariable("ENVIRONMENT") ?? "";
-            Dictionary<string, string> environmentFields = ReadEnvironmentFields();
-
-            Platform.Spec spec = Platform.Find(platform);
-            BuildConfig config = LoadConfig();
-
-            Apply(spec, development, config, environmentName, environmentFields);
-
-            string outputPath = $"Build/{Regex.Replace(PlayerSettings.productName, @"[^a-zA-Z0-9._-]", "_")}.apk";
+            Platform platform = PlatformCatalog.Find(Environment.GetEnvironmentVariable("PLATFORM") ?? "");
+            bool development = ReadDevelopment();
+            Apply(platform, development);
+            string outputPath =
+                $"Build/{Regex.Replace(PlayerSettings.productName, @"[^a-zA-Z0-9._-]", "_")}{platform.OutputExtension}";
             Directory.CreateDirectory("Build");
             Debug.Log(
-                $"[playerbuild] {(development ? "Development" : "Release")} build of '{spec.Name}' -> {outputPath}"
+                $"[playerbuild] {(development ? "Development" : "Release")} build of '{platform.Name}' -> {outputPath}"
             );
-            BuildReport report = BuildPlayer(development, outputPath);
-
+            var options = new BuildPlayerOptions
+            {
+                scenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).Select(scene => scene.path).ToArray(),
+                locationPathName = outputPath,
+                target = platform.Target,
+                targetGroup = platform.TargetGroup,
+                options = development ? BuildOptions.Development : BuildOptions.None,
+            };
+            BuildReport report = BuildPipeline.BuildPlayer(options);
             File.WriteAllText(
                 Path.Combine("Build", "BuildReport.json"),
                 JsonConvert.SerializeObject(SerializableBuildReport.From(report), Formatting.Indented)
@@ -89,69 +56,46 @@ namespace Outernet
             Debug.Log($"[playerbuild] Build succeeded: {outputPath}");
         }
 
-        public static Dictionary<string, string> ReadEnvironmentFields()
+        private static bool ReadDevelopment()
         {
-            string fieldsJson = Environment.GetEnvironmentVariable("ENVIRONMENT_FIELDS");
-            if (string.IsNullOrEmpty(fieldsJson))
+            string value = Environment.GetEnvironmentVariable("DEVELOPMENT");
+            if (value != null && value != "true" && value != "false")
             {
-                return new Dictionary<string, string>();
+                throw new BuildFailedException($"DEVELOPMENT must be 'true' or 'false' — got '{value}'");
             }
 
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(fieldsJson)
-                ?? new Dictionary<string, string>();
+            return value == "true";
         }
 
-        public static BuildConfig LoadConfig()
+        public static void Apply(Platform platform, bool development)
         {
-            string path = Path.Combine(Directory.GetParent(Application.dataPath)!.FullName, "unity-devkit.json");
-            if (!File.Exists(path))
-            {
-                throw new BuildFailedException(
-                    $"No unity-devkit.json at the project root ({path}) — the build requires one."
-                );
-            }
-
-            return JsonConvert.DeserializeObject<BuildConfig>(File.ReadAllText(path))!;
-        }
-
-        public static void Apply(
-            Platform.Spec spec,
-            bool development,
-            BuildConfig config,
-            string environment,
-            IReadOnlyDictionary<string, string> environmentFields
-        )
-        {
-            ApplyPlatformFacts(spec, development);
-            ApplySigning();
-            ApplyEnvironment(config.EnvironmentConfig, environment, environmentFields);
-            ApplyXr(spec);
-            PlatformOverrides overrides = PlatformFor(config, spec.Name);
-            ApplyPipeline(overrides.RenderPipeline);
-            ApplyAdditionalDefines(overrides.AdditionalDefines);
-            WritePlatformRecord(spec, development);
-        }
-
-        public static void ApplyPlatformFacts(Platform.Spec spec, bool development)
-        {
-            PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.Android, spec.Defines);
-            PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { spec.GraphicsApi });
-            PlayerSettings.SetNormalMapEncoding(NamedBuildTarget.Android, spec.NormalMapEncoding);
-            PlayerSettings.Android.targetArchitectures = spec.Architecture;
+            NamedBuildTarget namedTarget = NamedBuildTarget.FromBuildTargetGroup(platform.TargetGroup);
+            PlayerSettings.SetScriptingDefineSymbols(namedTarget, platform.Defines);
+            PlayerSettings.SetGraphicsAPIs(platform.Target, new[] { platform.GraphicsApi });
+            PlayerSettings.SetNormalMapEncoding(namedTarget, platform.NormalMapEncoding);
             PlayerSettings.SetIl2CppCompilerConfiguration(
-                NamedBuildTarget.Android,
-                development ? spec.DevelopmentIl2Cpp : spec.ReleaseIl2Cpp
+                namedTarget,
+                development ? platform.DevelopmentIl2Cpp : platform.ReleaseIl2Cpp
             );
-            PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.Android, Il2CppCodeGeneration.OptimizeSpeed);
+            PlayerSettings.SetIl2CppCodeGeneration(namedTarget, Il2CppCodeGeneration.OptimizeSpeed);
             PlayerSettings.SetManagedStrippingLevel(
-                NamedBuildTarget.Android,
-                development ? spec.DevelopmentStripping : spec.ReleaseStripping
+                namedTarget,
+                development ? platform.DevelopmentStripping : platform.ReleaseStripping
             );
-            PlayerSettings.SetApiCompatibilityLevel(NamedBuildTarget.Android, spec.ApiCompatibility);
-            EditorUserBuildSettings.androidBuildSubtarget = spec.TextureSubtarget;
-            EditorUserBuildSettings.development = development;
+            PlayerSettings.SetApiCompatibilityLevel(namedTarget, platform.ApiCompatibility);
+            if (platform.TargetGroup == BuildTargetGroup.Android)
+            {
+                PlayerSettings.Android.targetArchitectures = platform.Architecture;
+                EditorUserBuildSettings.androidBuildSubtarget = platform.TextureSubtarget;
+            }
+
+            ApplySigning();
+            ApplyXr(platform);
+            ApplyPipeline(platform.RenderPipeline);
+            MergeAdditionalDefines(platform, namedTarget);
+            WritePlatformRecord(platform, development);
             Debug.Log(
-                $"[playerbuild] platform facts applied: {spec.Name} ({(development ? "development" : "release")})"
+                $"[playerbuild] platform facts applied: {platform.Name} ({(development ? "development" : "release")}) -> {platform.Target}"
             );
         }
 
@@ -189,180 +133,61 @@ namespace Outernet
             Debug.Log($"[playerbuild] signing keystore applied: {path} (alias {alias})");
         }
 
-        public static void ApplyEnvironment(
-            string classPath,
-            string environment,
-            IReadOnlyDictionary<string, string> fields
-        )
+        private static void ApplyXr(Platform platform)
         {
-            if (environment.Length == 0 && fields.Count == 0)
+            if (platform.XrLoader.Length == 0)
             {
-                Debug.Log("[playerbuild] no environment selected — leaving workspace untouched");
+                Debug.Log("[playerbuild] no XR loader in platform — skipping XR wiring");
                 return;
             }
 
-            EnvironmentConfig environmentConfig = new(classPath);
-            bool applyingPreset = environment.Length > 0;
-            if (applyingPreset)
-            {
-                ApplyEnvironmentPreset(environmentConfig, environment);
-            }
-
-            UnityEngine.Object targetAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(
-                environmentConfig.TargetPath
-            );
-            if (targetAsset == null)
-            {
-                throw new BuildFailedException(
-                    $"No environment asset at '{environmentConfig.TargetPath}' — apply a preset first"
-                );
-            }
-
-            var serialized = new SerializedObject(targetAsset);
-            SerializedProperty modeProperty = applyingPreset
-                ? serialized.FindProperty(environmentConfig.ModeFieldName)
-                : null;
-            if (applyingPreset && modeProperty == null)
-            {
-                throw new BuildFailedException(
-                    $"The asset at '{environmentConfig.TargetPath}' has no '{environmentConfig.ModeFieldName}' field "
-                        + "— the preset is stale against the class, re-save it"
-                );
-            }
-
-            if (modeProperty != null)
-            {
-                modeProperty.intValue = (int)Enum.Parse(environmentConfig.ModeEnumType, environment, true);
-            }
-
-            foreach (KeyValuePair<string, string> entry in fields)
-            {
-                EnvironmentField field = environmentConfig.Fields.FirstOrDefault(candidate =>
-                    candidate.Path == entry.Key
-                );
-                if (field == null)
-                {
-                    throw new BuildFailedException(
-                        $"Unknown environment field '{entry.Key}' (declared: {string.Join(", ", environmentConfig.Fields.Select(candidate => candidate.Path))})"
-                    );
-                }
-
-                SerializedProperty property = serialized.FindProperty(entry.Key);
-                if (property == null)
-                {
-                    throw new BuildFailedException(
-                        $"Environment field '{entry.Key}' is absent from '{environmentConfig.TargetPath}' — the asset is stale against the class, re-save it"
-                    );
-                }
-
-                if (field.FieldType.IsEnum)
-                {
-                    property.intValue = (int)Convert.ToInt64(Enum.Parse(field.FieldType, entry.Value, true));
-                }
-                else
-                {
-                    property.boxedValue = Convert.ChangeType(
-                        entry.Value,
-                        field.FieldType,
-                        CultureInfo.InvariantCulture
-                    );
-                }
-            }
-
-            serialized.ApplyModifiedProperties();
-            AssetDatabase.SaveAssets();
-            Debug.Log(
-                $"[playerbuild] environment '{environment}' applied to {environmentConfig.TargetPath} ({fields.Count} override(s))"
-            );
-        }
-
-        private static void ApplyEnvironmentPreset(EnvironmentConfig environmentConfig, string environment)
-        {
-            if (!environmentConfig.Presets.TryGetValue(environment, out string sourcePath))
-            {
-                throw new BuildFailedException(
-                    $"Unknown environment '{environment}' (declared: {string.Join(", ", environmentConfig.Presets.Keys)})"
-                );
-            }
-
-            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(sourcePath) == null)
-            {
-                throw new BuildFailedException($"Preset asset not found at '{sourcePath}'");
-            }
-
-            string[] segments = Path.GetDirectoryName(environmentConfig.TargetPath)!.Replace('\\', '/').Split('/');
-            string currentFolder = segments[0];
-            for (int index = 1; index < segments.Length; index++)
-            {
-                string nextFolder = $"{currentFolder}/{segments[index]}";
-                if (!AssetDatabase.IsValidFolder(nextFolder))
-                {
-                    AssetDatabase.CreateFolder(currentFolder, segments[index]);
-                }
-
-                currentFolder = nextFolder;
-            }
-
-            AssetDatabase.DeleteAsset(environmentConfig.TargetPath);
-            if (!AssetDatabase.CopyAsset(sourcePath, environmentConfig.TargetPath))
-            {
-                throw new BuildFailedException(
-                    $"Failed to copy environment asset {sourcePath} -> {environmentConfig.TargetPath}"
-                );
-            }
-
-            Debug.Log($"[playerbuild] preset '{environment}' copied {sourcePath} -> {environmentConfig.TargetPath}");
-        }
-
-        public static void ApplyXr(Platform.Spec spec)
-        {
             // RefreshFeatures registers the OpenXR settings in EditorBuildSettings (via GetOrCreateInstance)
             // before the build reads them — without it the mid-build access throws "not yet loaded. Please
             // build again." OpenXRPackageSettings is internal, so this call is the public registration trigger.
-            FeatureHelpers.RefreshFeatures(BuildTargetGroup.Android);
+            FeatureHelpers.RefreshFeatures(platform.TargetGroup);
             OpenXRFeatureSetManager.InitializeFeatureSets();
             List<OpenXRFeatureSetManager.FeatureSet> featureSets = OpenXRFeatureSetManager.FeatureSetsForBuildTarget(
-                BuildTargetGroup.Android
+                platform.TargetGroup
             );
             foreach (OpenXRFeatureSetManager.FeatureSet featureSet in featureSets)
             {
                 featureSet.isEnabled = false;
             }
 
-            OpenXRFeatureSetManager.SetFeaturesFromEnabledFeatureSets(BuildTargetGroup.Android);
-            Debug.Log($"[playerbuild] feature sets deselected for Android ({featureSets.Count} known)");
+            OpenXRFeatureSetManager.SetFeaturesFromEnabledFeatureSets(platform.TargetGroup);
+            Debug.Log($"[playerbuild] feature sets deselected for {platform.TargetGroup} ({featureSets.Count} known)");
 
             XRGeneralSettings xrSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(
-                BuildTargetGroup.Android
+                platform.TargetGroup
             );
             if (xrSettings?.AssignedSettings == null)
             {
                 throw new BuildFailedException(
-                    "No XRGeneralSettings assigned for Android — enable XR Plug-in Management for Android once "
-                        + "and commit Assets/XR/XRGeneralSettingsPerBuildTarget.asset"
+                    $"No XRGeneralSettings assigned for {platform.TargetGroup} — enable XR Plug-in Management for the "
+                        + "target group once and commit the XRGeneralSettingsPerBuildTarget asset"
                 );
             }
 
             foreach (XRLoader loader in xrSettings.AssignedSettings.activeLoaders.ToList())
             {
-                if (loader.GetType().FullName != spec.XrLoader)
+                if (loader.GetType().FullName != platform.XrLoader)
                 {
                     XRPackageMetadataStore.RemoveLoader(
                         xrSettings.AssignedSettings,
                         loader.GetType().FullName,
-                        BuildTargetGroup.Android
+                        platform.TargetGroup
                     );
                 }
             }
 
-            XRPackageMetadataStore.AssignLoader(xrSettings.AssignedSettings, spec.XrLoader, BuildTargetGroup.Android);
+            XRPackageMetadataStore.AssignLoader(xrSettings.AssignedSettings, platform.XrLoader, platform.TargetGroup);
 
-            if (spec.OpenXrFeatures.Length > 0)
+            if (platform.OpenXrFeatures.Length > 0)
             {
-                OpenXRSettings openXRSettings = OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Android);
+                OpenXRSettings openXRSettings = OpenXRSettings.GetSettingsForBuildTargetGroup(platform.TargetGroup);
                 foreach (OpenXRFeature feature in openXRSettings.GetFeatures())
                 {
-                    feature.enabled = spec.OpenXrFeatures.Contains(feature.GetType().FullName);
+                    feature.enabled = platform.OpenXrFeatures.Contains(feature.GetType().FullName);
                 }
 
                 string[] enabledFeatures = openXRSettings
@@ -373,22 +198,12 @@ namespace Outernet
                 Debug.Log($"[playerbuild] OpenXR features enabled: {string.Join(", ", enabledFeatures)}");
             }
 
-            Debug.Log($"[playerbuild] XR loader '{spec.XrLoader}' assigned for Android (sweep applied)");
-        }
-
-        public static PlatformOverrides PlatformFor(BuildConfig config, string platformName)
-        {
-            if (config.Platforms.TryGetValue(platformName, out PlatformOverrides overrides))
-            {
-                return overrides;
-            }
-
-            throw new BuildFailedException(
-                $"unity-devkit.json declares no platform for '{platformName}' (declared: {string.Join(", ", config.Platforms.Keys)})"
+            Debug.Log(
+                $"[playerbuild] XR loader '{platform.XrLoader}' assigned for {platform.TargetGroup} (sweep applied)"
             );
         }
 
-        public static void ApplyPipeline(string renderPipelinePath)
+        private static void ApplyPipeline(string renderPipelinePath)
         {
             if (renderPipelinePath.Length == 0)
             {
@@ -398,7 +213,7 @@ namespace Outernet
             RenderPipelineAsset pipeline = AssetDatabase.LoadAssetAtPath<RenderPipelineAsset>(renderPipelinePath);
             if (pipeline == null)
             {
-                throw new BuildFailedException($"render_pipeline asset not found at '{renderPipelinePath}'");
+                throw new BuildFailedException($"render pipeline asset not found at '{renderPipelinePath}'");
             }
 
             GraphicsSettings.defaultRenderPipeline = pipeline;
@@ -406,18 +221,18 @@ namespace Outernet
             Debug.Log($"[playerbuild] Render pipeline assigned: {renderPipelinePath}");
         }
 
-        public static void ApplyAdditionalDefines(IReadOnlyList<string> additionalDefines)
+        private static void MergeAdditionalDefines(Platform platform, NamedBuildTarget namedTarget)
         {
-            if (additionalDefines is not { Count: > 0 })
+            if (platform.AdditionalDefines is not { Length: > 0 })
             {
                 return;
             }
 
             List<string> defines = PlayerSettings
-                .GetScriptingDefineSymbols(NamedBuildTarget.Android)
+                .GetScriptingDefineSymbols(namedTarget)
                 .Split(';', StringSplitOptions.RemoveEmptyEntries)
                 .ToList();
-            foreach (string define in additionalDefines)
+            foreach (string define in platform.AdditionalDefines)
             {
                 if (!defines.Contains(define))
                 {
@@ -425,13 +240,11 @@ namespace Outernet
                 }
             }
 
-            PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.Android, string.Join(";", defines));
-            Debug.Log(
-                $"[playerbuild] additional_defines merged into the global layer: {string.Join(", ", additionalDefines)}"
-            );
+            PlayerSettings.SetScriptingDefineSymbols(namedTarget, string.Join(";", defines));
+            Debug.Log($"[playerbuild] additional defines merged: {string.Join(", ", platform.AdditionalDefines)}");
         }
 
-        private static void WritePlatformRecord(Platform.Spec spec, bool development)
+        private static void WritePlatformRecord(Platform platform, bool development)
         {
             if (!AssetDatabase.IsValidFolder(WorkspaceDirectory))
             {
@@ -440,14 +253,14 @@ namespace Outernet
 
             File.WriteAllText(
                 PlatformRecordPath,
-                JsonConvert.SerializeObject(new Platform.Record { Platform = spec.Name, Development = development })
+                JsonConvert.SerializeObject(new Record { Platform = platform.Name, Development = development })
             );
             Debug.Log(
-                $"[playerbuild] platform record written: {spec.Name} ({(development ? "development" : "release")})"
+                $"[playerbuild] platform record written: {platform.Name} ({(development ? "development" : "release")})"
             );
         }
 
-        public static Platform.Record ReadPlatformRecord()
+        public static Record ReadPlatformRecord()
         {
             if (!File.Exists(PlatformRecordPath))
             {
@@ -456,21 +269,8 @@ namespace Outernet
                 );
             }
 
-            return JsonConvert.DeserializeObject<Platform.Record>(File.ReadAllText(PlatformRecordPath))
+            return JsonConvert.DeserializeObject<Record>(File.ReadAllText(PlatformRecordPath))
                 ?? throw new BuildFailedException($"platform record at {PlatformRecordPath} is empty — run Apply");
-        }
-
-        private static BuildReport BuildPlayer(bool development, string outputPath)
-        {
-            var options = new BuildPlayerOptions
-            {
-                scenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).Select(scene => scene.path).ToArray(),
-                locationPathName = outputPath,
-                target = BuildTarget.Android,
-                targetGroup = BuildTargetGroup.Android,
-                options = development ? BuildOptions.Development : BuildOptions.None,
-            };
-            return BuildPipeline.BuildPlayer(options);
         }
     }
 }
