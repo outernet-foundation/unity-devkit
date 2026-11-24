@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from unity_devkit import player_build
 
@@ -23,6 +24,7 @@ def write_repository(tmp_path: Path, project_settings: str, *, builds: list[str]
     (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.0.66f1\n")
     config: dict[str, object] = {"name": "tool"}
     if builds is not None:
+        config["entry"] = "Outernet.Tool.Entry"
         config["platforms"] = {platform: {} for platform in builds}
     (project / "unity-devkit.json").write_text(json.dumps(config))
     return project
@@ -33,10 +35,20 @@ def fake_unity_build_producing(project_path: Path, extra_flags: str, *, nographi
     build_directory = project_path / "Build"
     build_directory.mkdir(exist_ok=True)
     (build_directory / "Tool.apk").write_bytes(b"apk")
+    record_directory = project_path / "Assets" / "_LocalWorkspace"
+    record_directory.mkdir(parents=True, exist_ok=True)
+    (record_directory / "platform.json").write_text(
+        json.dumps({"platform": env["PLATFORM"], "development": env["DEVELOPMENT"] == "true"})
+    )
     return Path("unused-editor.log")
 
 
 def fake_unity_build_silent(project_path: Path, extra_flags: str, *, nographics: bool, env: dict[str, str]) -> Path:
+    record_directory = project_path / "Assets" / "_LocalWorkspace"
+    record_directory.mkdir(parents=True, exist_ok=True)
+    (record_directory / "platform.json").write_text(
+        json.dumps({"platform": env["PLATFORM"], "development": env["DEVELOPMENT"] == "true"})
+    )
     return Path("unused-editor.log")
 
 
@@ -53,7 +65,7 @@ def test_build_player_stamps_version_and_returns_artifacts(tmp_path: Path, monke
     assert "  bundleVersion: 0.2.7-dev+42\n" in rewritten
     assert "0.1.0" not in rewritten
     assert produced == [project / "Build" / "Tool.apk"]
-    assert RECEIVED_SESSIONS[0][0] == "-buildTarget Android -executeMethod Outernet.PlayerBuild.Entry"
+    assert RECEIVED_SESSIONS[0][0] == "-buildTarget Android -executeMethod Outernet.Tool.Entry"
 
 
 def test_build_player_appends_the_commit_count_to_an_opaque_version_base(
@@ -115,11 +127,58 @@ def test_unknown_build_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         player_build.build_player("tool", "win64")
 
 
-def test_build_without_platform_config_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile", "SteamDeck"])
+def test_platform_record_mismatch_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile"])
+
+    def fake_wrong_platform(project_path: Path, extra_flags: str, *, nographics: bool, env: dict[str, str]) -> Path:
+        build_directory = project_path / "Build"
+        build_directory.mkdir(exist_ok=True)
+        (build_directory / "Tool.apk").write_bytes(b"apk")
+        record_directory = project_path / "Assets" / "_LocalWorkspace"
+        record_directory.mkdir(parents=True, exist_ok=True)
+        (record_directory / "platform.json").write_text(json.dumps({"platform": "MagicLeap2", "development": False}))
+        return Path("unused-editor.log")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_wrong_platform)
+
+    with pytest.raises(SystemExit, match="wrong spec"):
+        player_build.build_player("tool", "AndroidMobile")
+
+
+def test_missing_platform_record_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    write_repository(tmp_path, PROJECT_SETTINGS, builds=["AndroidMobile"])
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(SystemExit, match="No platform config for build 'SteamDeck'"):
+    def fake_no_record(project_path: Path, extra_flags: str, *, nographics: bool, env: dict[str, str]) -> Path:
+        build_directory = project_path / "Build"
+        build_directory.mkdir(exist_ok=True)
+        (build_directory / "Tool.apk").write_bytes(b"apk")
+        return Path("unused-editor.log")
+
+    monkeypatch.setattr(player_build, "run_unity_batchmode", fake_no_record)
+
+    with pytest.raises(SystemExit, match="platform record"):
+        player_build.build_player("tool", "AndroidMobile")
+
+
+def test_build_without_entry_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = tmp_path / "apps" / "Tool"
+    (project / "ProjectSettings").mkdir(parents=True)
+    (project / "ProjectSettings" / "ProjectSettings.asset").write_text(PROJECT_SETTINGS)
+    (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.0.66f1\n")
+    (project / "unity-devkit.json").write_text(json.dumps({"name": "tool", "platforms": {"AndroidMobile": {}}}))
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ValidationError, match="entry"):
+        player_build.build_player("tool", "AndroidMobile")
+
+
+def test_platform_without_known_build_target_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    write_repository(tmp_path, PROJECT_SETTINGS, builds=["SteamDeck"])
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit, match="No build target known for platform 'SteamDeck'"):
         player_build.build_player("tool", "SteamDeck")
 
 
@@ -129,20 +188,9 @@ def test_build_player_environment_carries_the_entry_contract(tmp_path: Path, mon
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(player_build, "run_unity_batchmode", fake_unity_build_producing)
 
-    player_build.build_player(
-        "tool",
-        "AndroidMobile",
-        development=True,
-        environment_preset="airgapped",
-        environment_fields={"localConfig.apiUrl": "http://tool.local"},
-    )
+    player_build.build_player("tool", "AndroidMobile", development=True)
 
-    assert RECEIVED_SESSIONS[0][1] == {
-        "PLATFORM": "AndroidMobile",
-        "DEVELOPMENT": "true",
-        "ENVIRONMENT": "airgapped",
-        "ENVIRONMENT_FIELDS": '{"localConfig.apiUrl": "http://tool.local"}',
-    }
+    assert RECEIVED_SESSIONS[0][1] == {"PLATFORM": "AndroidMobile", "DEVELOPMENT": "true"}
 
 
 def test_build_player_without_environment_sends_platform_and_development_only(

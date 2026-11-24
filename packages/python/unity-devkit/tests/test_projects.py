@@ -22,7 +22,14 @@ def write_build_config(project_dir: Path, config: dict[str, object]) -> Path:
 
 def test_discovers_project_with_platforms_keys_as_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = create_unity_project(tmp_path, "Alpha")
-    write_build_config(project, {"name": "Alpha", "platforms": {"Linux": {}, "AndroidMobile": {}}})
+    write_build_config(
+        project,
+        {
+            "name": "Alpha",
+            "entry": "Outernet.Alpha.Entry",
+            "platforms": {"Linux": {}, "AndroidMobile": {"render_pipeline": "Assets/Settings/Android.asset"}},
+        },
+    )
     monkeypatch.chdir(tmp_path)
 
     projects = discover_projects()
@@ -30,6 +37,7 @@ def test_discovers_project_with_platforms_keys_as_builds(tmp_path: Path, monkeyp
     assert set(projects) == {"Alpha"}
     assert projects["Alpha"].path == project
     assert projects["Alpha"].builds == ["Linux", "AndroidMobile"]
+    assert projects["Alpha"].entry == "Outernet.Alpha.Entry"
 
 
 def test_name_is_decoupled_from_directory_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -52,6 +60,8 @@ def test_path_only_project_has_no_builds(tmp_path: Path, monkeypatch: pytest.Mon
 
     assert set(projects) == {"Harness"}
     assert projects["Harness"].builds is None
+    assert projects["Harness"].entry is None
+    assert projects["Harness"].platforms is None
 
 
 def test_no_build_config_found_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -82,21 +92,41 @@ def test_duplicate_project_name_fails(tmp_path: Path, monkeypatch: pytest.Monkey
         discover_projects()
 
 
-def test_ignores_csharp_owned_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_platforms_without_entry_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = create_unity_project(tmp_path, "App")
+    write_build_config(
+        project,
+        {"name": "App", "platforms": {"AndroidMobile": {"render_pipeline": "Assets/P.asset"}}},
+    )
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ValidationError, match="entry"):
+        discover_projects()
+
+
+def test_unknown_root_field_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = create_unity_project(tmp_path, "App")
+    write_build_config(project, {"name": "App", "environment_config": "Assets/App/UnityEnv.cs"})
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ValidationError, match="environment_config"):
+        discover_projects()
+
+
+def test_unknown_platform_field_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = create_unity_project(tmp_path, "App")
     write_build_config(
         project,
         {
             "name": "App",
-            "environment_config": "Assets/App/UnityEnv.cs",
-            "platforms": {"AndroidMobile": {"render_pipeline": "Assets/Settings/Android.asset"}},
+            "entry": "Outernet.App.Entry",
+            "platforms": {"AndroidMobile": {"render_pipeline": "Assets/P.asset", "environment_preset": "airgapped"}},
         },
     )
     monkeypatch.chdir(tmp_path)
 
-    projects = discover_projects()
-
-    assert projects["App"].builds == ["AndroidMobile"]
+    with pytest.raises(ValidationError, match="environment_preset"):
+        discover_projects()
 
 
 def test_missing_name_field_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

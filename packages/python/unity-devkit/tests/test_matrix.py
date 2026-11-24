@@ -10,7 +10,7 @@ def write_repository(tmp_path: Path, builds: list[str] | None = None) -> None:
     project = tmp_path / "apps" / "Tool"
     (project / "ProjectSettings").mkdir(parents=True)
     (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.0.66f1\n")
-    config: dict[str, object] = {"name": "tool"}
+    config: dict[str, object] = {"name": "tool", "entry": "Outernet.Tool.Entry"}
     if builds is not None:
         config["platforms"] = {platform: {} for platform in builds}
     (project / "unity-devkit.json").write_text(json.dumps(config))
@@ -19,7 +19,7 @@ def write_repository(tmp_path: Path, builds: list[str] | None = None) -> None:
 def test_matrix_emits_entries_from_catalog(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    write_repository(tmp_path, builds=["Linux"])
+    write_repository(tmp_path, builds=["AndroidMobile"])
     monkeypatch.chdir(tmp_path)
 
     matrix.build_matrix()
@@ -28,8 +28,8 @@ def test_matrix_emits_entries_from_catalog(
     assert legs == [
         {
             "project": "tool",
-            "platform": "Linux",
-            "editor-image": "unityci/editor:6000.0.66f1-linux-il2cpp-3",
+            "platform": "AndroidMobile",
+            "editor-image": "unityci/editor:6000.0.66f1-android-3",
         }
     ]
 
@@ -42,6 +42,19 @@ def test_matrix_fails_without_builds(tmp_path: Path, monkeypatch: pytest.MonkeyP
         matrix.build_matrix()
 
 
+def test_matrix_fails_on_unknown_build_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = tmp_path / "apps" / "Tool"
+    (project / "ProjectSettings").mkdir(parents=True)
+    (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.0.66f1\n")
+    (project / "unity-devkit.json").write_text(
+        json.dumps({"name": "tool", "entry": "Outernet.Tool.Entry", "platforms": {"SteamDeck": {}}})
+    )
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit, match="No build target known for platform 'SteamDeck'"):
+        matrix.build_matrix()
+
+
 def test_matrix_project_filter_scopes_to_one_project(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -49,7 +62,9 @@ def test_matrix_project_filter_scopes_to_one_project(
     other = tmp_path / "apps" / "Other"
     (other / "ProjectSettings").mkdir(parents=True)
     (other / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.0.66f1\n")
-    (other / "unity-devkit.json").write_text(json.dumps({"name": "other", "platforms": {"Linux": {}}}))
+    (other / "unity-devkit.json").write_text(
+        json.dumps({"name": "other", "entry": "Outernet.Other.Entry", "platforms": {"AndroidMobile": {}}})
+    )
     monkeypatch.chdir(tmp_path)
 
     matrix.build_matrix(project="other")
