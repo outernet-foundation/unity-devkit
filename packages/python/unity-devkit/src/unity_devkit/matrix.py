@@ -5,7 +5,13 @@ from typing import Annotated
 
 import typer
 
-from .player_build import LICENSE_IMAGE_MODULE, PLATFORM_CONFIGS, UNITYCI_IMAGE_REVISION, read_editor_version
+from .player_build import (
+    LICENSE_IMAGE_MODULE,
+    UNITYCI_IMAGE_REVISION,
+    platform_build_target,
+    read_editor_version,
+    unityci_image_module,
+)
 from .projects import ProjectEntry, discover_projects
 
 build_app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
@@ -22,11 +28,11 @@ def build_matrix(
     matrix: list[dict[str, str]] = []
 
     for name, entry in projects.items():
-        if not entry.builds:
+        if not entry.platforms:
             continue
         version = read_editor_version(entry.path)
-        for platform in entry.builds:
-            image_module = PLATFORM_CONFIGS[platform]["unityci_image_module"]
+        for platform in entry.platforms:
+            image_module = unityci_image_module(platform_build_target(platform))
             matrix.append({
                 "project": name,
                 "platform": platform,

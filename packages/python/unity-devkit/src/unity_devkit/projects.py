@@ -1,20 +1,27 @@
 import os
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 BUILD_CONFIG_FILENAME = "unity-devkit.json"
 PROJECT_MARKER = Path("ProjectSettings") / "ProjectVersion.txt"
 PRUNE_DIRECTORIES = {".git", "Library", "Temp", "obj", "Build", "node_modules", "__pycache__"}
 
 
+class PlatformConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    render_pipeline: str = ""
+
+
 class BuildConfigFile(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     name: str
-    platforms: dict[str, Any] | None = None
+    entry: str | None = None
+    platforms: dict[str, PlatformConfig] | None = None
 
     @field_validator("name")
     @classmethod
@@ -23,10 +30,24 @@ class BuildConfigFile(BaseModel):
             raise ValueError("unity-devkit.json 'name' must be a non-empty string")
         return value
 
+    @model_validator(mode="after")
+    def entry_required_with_platforms(self) -> Self:
+        if self.platforms and not self.entry:
+            raise ValueError(
+                "unity-devkit.json declares 'platforms' — an 'entry' executeMethod is required "
+                "(a public static parameterless method the build invokes)"
+            )
+        return self
+
 
 class ProjectEntry(BaseModel):
     path: Path
-    builds: list[str] | None = None
+    entry: str | None = None
+    platforms: dict[str, PlatformConfig] | None = None
+
+    @property
+    def builds(self) -> list[str] | None:
+        return list(self.platforms) if self.platforms else None
 
 
 def discover_projects() -> dict[str, ProjectEntry]:
@@ -49,14 +70,13 @@ def discover_projects() -> dict[str, ProjectEntry]:
                 f"and previously at {first_seen[parsed.name]}"
             )
         first_seen[parsed.name] = config_path
-        builds = list(parsed.platforms.keys()) if parsed.platforms else None
-        discovered[parsed.name] = ProjectEntry(path=directory, builds=builds)
+        discovered[parsed.name] = ProjectEntry(path=directory, entry=parsed.entry, platforms=parsed.platforms)
 
     if not discovered:
         raise SystemExit(
             f"No {BUILD_CONFIG_FILENAME} found under {root} — declare Unity projects with a "
             f"{BUILD_CONFIG_FILENAME} per project root (carrying a 'name' field; 'platforms' "
-            f"keys are the build targets)"
+            "keys are the build targets)"
         )
     return discovered
 

@@ -106,7 +106,9 @@ def test_cli_passes_when_every_project_agrees(tmp_path: Path, monkeypatch: pytes
     project = tmp_path / "Tool"
     (project / "ProjectSettings").mkdir(parents=True)
     (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.0.66f1\n")
-    (project / "unity-devkit.json").write_text(json.dumps({"name": "Tool", "platforms": {"Linux": {}}}))
+    (project / "unity-devkit.json").write_text(
+        json.dumps({"name": "Tool", "entry": "Outernet.Tool.Entry", "platforms": {"Linux": {}}})
+    )
     packages = project / "Packages"
     packages.mkdir()
     (packages / "manifest.json").write_text(json.dumps(MANIFEST), encoding="utf-8")
@@ -120,7 +122,9 @@ def test_cli_exits_non_zero_on_drift(tmp_path: Path, monkeypatch: pytest.MonkeyP
     project = tmp_path / "Tool"
     (project / "ProjectSettings").mkdir(parents=True)
     (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.0.66f1\n")
-    (project / "unity-devkit.json").write_text(json.dumps({"name": "Tool", "platforms": {"Linux": {}}}))
+    (project / "unity-devkit.json").write_text(
+        json.dumps({"name": "Tool", "entry": "Outernet.Tool.Entry", "platforms": {"Linux": {}}})
+    )
     packages = project / "Packages"
     packages.mkdir()
     (packages / "manifest.json").write_text(json.dumps(MANIFEST), encoding="utf-8")

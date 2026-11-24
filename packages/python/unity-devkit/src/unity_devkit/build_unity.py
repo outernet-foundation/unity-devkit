@@ -12,7 +12,7 @@ from build_artifact_registry.cache import restore, save
 from build_artifact_registry.setup_oras import install_oras
 from .identity import builds_registry, cache_key, cache_registry
 from .license_restore import restore_or_activate_license
-from .player_build import build_player, parse_environment_fields, resolve_unity_project
+from .player_build import build_player, resolve_unity_project
 from .upm_cache import restore_upm_cache, save_upm_cache
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
@@ -47,15 +47,7 @@ def build_unity(
         ),
     ] = "",
     development: Annotated[bool, typer.Option("--development", help="Development build column")] = False,
-    environment_preset: Annotated[
-        str, typer.Option(help="Environment preset name; empty leaves the workspace untouched")
-    ] = "",
-    environment_field: Annotated[
-        list[str] | None,
-        typer.Option("--environment-field", help="Environment field override as path=value (repeatable)"),
-    ] = None,
 ) -> None:
-    fields = parse_environment_fields(environment_field or [])
     parsed_pr_number = int(pr_number) if pr_number else None
     derived_cache_key = cache_key(project, platform, parsed_pr_number)
     library_cache_registry = cache_registry(registry)
@@ -80,8 +72,6 @@ def build_unity(
         version=version,
         commit_count=commit_count,
         development=development,
-        environment_preset=environment_preset,
-        environment_fields=fields,
     )
     for artifact in artifacts:
         print(f"Built: {artifact}")

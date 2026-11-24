@@ -6,28 +6,36 @@ import sys
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TypedDict
 
 from bashrun.bash import CalledProcessError, bash, bash_pipe
 
 from .projects import ProjectEntry, discover_projects
 
 
-class PlatformConfig(TypedDict):
-    build_target: str
-    unityci_image_module: str
+UNITYCI_IMAGE_MODULES: dict[str, str] = {
+    "Android": "android",
+    "StandaloneLinux64": "linux-il2cpp",
+    "Win64": "windows-mono",
+}
 
-
-PLATFORM_CONFIGS: dict[str, PlatformConfig] = {
-    "AndroidMobile": {"build_target": "Android", "unityci_image_module": "android"},
-    "MagicLeap2": {"build_target": "Android", "unityci_image_module": "android"},
-    "Linux": {"build_target": "StandaloneLinux64", "unityci_image_module": "linux-il2cpp"},
-    "Windows": {"build_target": "Win64", "unityci_image_module": "windows-mono"},
+PLATFORM_BUILD_TARGETS: dict[str, str] = {
+    "AndroidMobile": "Android",
+    "MagicLeap2": "Android",
 }
 
 UNITYCI_IMAGE_REVISION = "3"
 LICENSE_IMAGE_MODULE = "linux-il2cpp"
-PLAYERBUILD_ENTRY = "Outernet.PlayerBuild.Entry"
+
+
+def platform_build_target(platform: str) -> str:
+    build_target = PLATFORM_BUILD_TARGETS.get(platform)
+    if build_target is None:
+        raise SystemExit(
+            f"No build target known for platform '{platform}' — add it to PLATFORM_BUILD_TARGETS "
+            "beside the matching SharedSpecs factory"
+        )
+    return build_target
+
 
 # Pinned to the v2026.07.21 tag of dotnet/install-scripts (raw at the commit SHA, which
 # is immutable, unlike the moving https://dot.net/v1/dotnet-install.sh redirect).
@@ -222,17 +230,13 @@ def prepare_unity_project(project_path: Path) -> None:
         bash(f"dotnet nugetforunity restore {project_path}", env=env)
 
 
-def parse_environment_fields(entries: Sequence[str]) -> dict[str, str]:
-    fields: dict[str, str] = {}
-    for entry in entries:
-        line = entry.strip()
-        if not line:
-            continue
-        path, separator, value = line.partition("=")
-        if not separator or not path:
-            raise SystemExit(f"Invalid environment field entry (expected path=value): {entry!r}")
-        fields[path] = value
-    return fields
+def unityci_image_module(build_target: str) -> str:
+    module = UNITYCI_IMAGE_MODULES.get(build_target)
+    if module is None:
+        raise SystemExit(
+            f"Unknown build target '{build_target}' — supported: {', '.join(sorted(UNITYCI_IMAGE_MODULES))}"
+        )
+    return module
 
 
 def build_player(
@@ -242,22 +246,23 @@ def build_player(
     version: str = "",
     commit_count: int = 0,
     development: bool = False,
-    environment_preset: str = "",
-    environment_fields: dict[str, str] | None = None,
 ) -> list[Path]:
     project_config = resolve_unity_project(project)
-    valid_builds = project_config.builds or []
-    if not valid_builds:
+    platforms = project_config.platforms
+    if not platforms:
         raise SystemExit(
             f"Project '{project}' declares no builds — add platform keys to its unity-devkit.json 'platforms' map"
         )
-    if build not in valid_builds:
-        raise SystemExit(f"Unknown build '{build}' for project '{project}'. Valid: {', '.join(valid_builds)}")
-    if build not in PLATFORM_CONFIGS:
-        raise SystemExit(f"No platform config for build '{build}'. Valid: {', '.join(PLATFORM_CONFIGS)}")
+    if build not in platforms:
+        raise SystemExit(f"Unknown build '{build}' for project '{project}'. Valid: {', '.join(sorted(platforms))}")
 
     project_path = project_config.path
-    build_target = PLATFORM_CONFIGS[build]["build_target"]
+    build_target = platform_build_target(build)
+    entry = project_config.entry
+    if not entry:
+        raise SystemExit(
+            f"Project '{project}' declares platforms but no 'entry' executeMethod in its unity-devkit.json"
+        )
     prepare_unity_project(project_path)
 
     if version:
@@ -273,16 +278,14 @@ def build_player(
     before = snapshot_artifacts(build_directory)
 
     env: dict[str, str] = {"PLATFORM": build, "DEVELOPMENT": "true" if development else "false"}
-    if environment_preset:
-        env["ENVIRONMENT"] = environment_preset
-    if environment_fields:
-        env["ENVIRONMENT_FIELDS"] = json.dumps(environment_fields)
     run_unity_batchmode(
         project_path,
-        f"-buildTarget {build_target} -executeMethod {PLAYERBUILD_ENTRY}",
+        f"-buildTarget {build_target} -executeMethod {entry}",
         nographics=False,
         env=env,
     )
+
+    verify_platform_record(project_path, build, development)
 
     after = snapshot_artifacts(build_directory)
     produced = sorted(path for path, modification_time in after.items() if before.get(path) != modification_time)
@@ -293,6 +296,25 @@ def build_player(
             "output under Build/ and the project's Library/Bee/.../build/ tree, then retry."
         )
     return produced
+
+
+def verify_platform_record(project_path: Path, build: str, development: bool) -> None:
+    record_path = project_path / "Assets" / "_LocalWorkspace" / "platform.json"
+    if not record_path.is_file():
+        raise SystemExit(
+            f"No platform record at {record_path} — the project entry never ran the playerbuild Apply step"
+        )
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    if record.get("platform") != build:
+        raise SystemExit(
+            f"Platform record says '{record.get('platform')}' but '{build}' was requested — "
+            "the entry applied the wrong spec"
+        )
+    if record.get("development") != development:
+        raise SystemExit(
+            f"Platform record says development={record.get('development')} but the build ran "
+            f"with development={development}"
+        )
 
 
 def replace_serialized_field(text: str, field_name: str, value: str) -> str:
