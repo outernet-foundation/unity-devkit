@@ -69,6 +69,7 @@ namespace Outernet
 
         public static void Apply(Platform platform, bool development)
         {
+            EditorUserBuildSettings.development = development;
             NamedBuildTarget namedTarget = NamedBuildTarget.FromBuildTargetGroup(platform.TargetGroup);
             PlayerSettings.SetScriptingDefineSymbols(namedTarget, platform.Defines);
             PlayerSettings.SetGraphicsAPIs(platform.Target, new[] { platform.GraphicsApi });
