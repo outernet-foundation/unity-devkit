@@ -93,6 +93,11 @@ namespace Outernet
             ApplyXr(platform);
             ApplyPipeline(platform.RenderPipeline);
             MergeAdditionalDefines(platform, namedTarget);
+
+            // Refresh the asset database because batch mode never runs the refresh an
+            // interactive editor would, so stale import artifacts would ship
+            AssetDatabase.Refresh();
+
             WritePlatformRecord(platform, development);
             Debug.Log(
                 $"[playerbuild] platform facts applied: {platform.Name} ({(development ? "development" : "release")}) -> {platform.Target}"
