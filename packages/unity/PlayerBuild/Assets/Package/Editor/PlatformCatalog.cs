@@ -34,22 +34,45 @@ namespace Outernet
             return Compose(platformName, entry.RenderPipeline);
         }
 
-        public static IReadOnlyList<string> Names()
+        internal static bool Declares(string platformName)
         {
-            return new List<string>(LoadConfig().Platforms.Keys);
+            // Never throw from here because MenuItem validation calls it on every menu open
+            return TryLoadConfig()?.Platforms.ContainsKey(platformName) ?? false;
         }
 
         private static CatalogConfigFile LoadConfig()
         {
-            string path = Path.Combine(Directory.GetParent(Application.dataPath)!.FullName, "unity-devkit.json");
+            return TryLoadConfig()
+                ?? throw new BuildFailedException(
+                    $"Platform resolution requires a readable unity-devkit.json at the project root ({ConfigPath()})"
+                );
+        }
+
+        private static CatalogConfigFile TryLoadConfig()
+        {
+            string path = ConfigPath();
             if (!File.Exists(path))
             {
-                throw new BuildFailedException(
-                    $"No unity-devkit.json at the project root ({path}) — platform resolution requires one"
-                );
+                return null;
             }
 
-            return JsonConvert.DeserializeObject<CatalogConfigFile>(File.ReadAllText(path))!;
+            try
+            {
+                return JsonConvert.DeserializeObject<CatalogConfigFile>(File.ReadAllText(path));
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+        }
+
+        private static string ConfigPath()
+        {
+            return Path.Combine(Directory.GetParent(Application.dataPath)!.FullName, "unity-devkit.json");
         }
 
         private static Platform Compose(string platformName, string renderPipeline)

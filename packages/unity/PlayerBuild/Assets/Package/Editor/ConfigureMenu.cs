@@ -1,30 +1,60 @@
 using UnityEditor;
-using UnityEngine;
 
 namespace Outernet
 {
     public static class ConfigureMenu
     {
-        [MenuItem("Player Build/Configure...")]
-        public static void Configure()
+        [MenuItem("Player Build/AndroidMobile/Release")]
+        private static void AndroidMobileRelease()
         {
-            GenericMenu menu = new();
-            foreach (string platform in PlatformCatalog.Names())
-            {
-                menu.AddItem(new GUIContent($"{platform}/Release"), false, ApplyRelease, platform);
-                menu.AddItem(new GUIContent($"{platform}/Development"), false, ApplyDevelopment, platform);
-            }
-            menu.ShowAsContext();
+            Apply("AndroidMobile", false);
         }
 
-        private static void ApplyRelease(object platformName)
+        [MenuItem("Player Build/AndroidMobile/Release", true)]
+        private static bool ValidateAndroidMobileRelease()
         {
-            PlayerBuild.Apply(PlatformCatalog.Find((string)platformName), false);
+            return PlatformCatalog.Declares("AndroidMobile");
         }
 
-        private static void ApplyDevelopment(object platformName)
+        [MenuItem("Player Build/AndroidMobile/Development")]
+        private static void AndroidMobileDevelopment()
         {
-            PlayerBuild.Apply(PlatformCatalog.Find((string)platformName), true);
+            Apply("AndroidMobile", true);
+        }
+
+        [MenuItem("Player Build/AndroidMobile/Development", true)]
+        private static bool ValidateAndroidMobileDevelopment()
+        {
+            return PlatformCatalog.Declares("AndroidMobile");
+        }
+
+        [MenuItem("Player Build/MagicLeap2/Release")]
+        private static void MagicLeap2Release()
+        {
+            Apply("MagicLeap2", false);
+        }
+
+        [MenuItem("Player Build/MagicLeap2/Release", true)]
+        private static bool ValidateMagicLeap2Release()
+        {
+            return PlatformCatalog.Declares("MagicLeap2");
+        }
+
+        [MenuItem("Player Build/MagicLeap2/Development")]
+        private static void MagicLeap2Development()
+        {
+            Apply("MagicLeap2", true);
+        }
+
+        [MenuItem("Player Build/MagicLeap2/Development", true)]
+        private static bool ValidateMagicLeap2Development()
+        {
+            return PlatformCatalog.Declares("MagicLeap2");
+        }
+
+        private static void Apply(string platformName, bool development)
+        {
+            PlayerBuild.Apply(PlatformCatalog.Find(platformName), development);
         }
     }
 }
